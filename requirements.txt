@@ -1,0 +1,11 @@
+aiogram==3.18.0
+
+# database
+SQLAlchemy==2.0.38
+asyncpg==0.30.0
+
+# ИИ
+openai==1.63.0
+
+# env
+python-dotenv==1.0.1

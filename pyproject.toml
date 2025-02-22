@@ -1,0 +1,52 @@
+[tool.ruff]
+# Включаем или отключаем правила (коды ошибок)
+lint.select = [
+    "D",   # включает проверки наличие докстринга
+    "E",   # Pycodestyle errors
+    "F",   # Pyflakes
+    "W",   # Pycodestyle warnings
+    "I",   # Isort (импорты)
+    "B",   # flake8-bugbear
+    "C",   # flake8-comprehensions
+    "Q",   # включает проверки ккавычек
+    "UP",  # pyupgrade
+    "PL",  # pylint
+    "RUF", # Специфичные для Ruff правила
+]
+
+# Игнорируем определенные правила
+lint.ignore = [
+    "E203",  # Пробел перед двоеточием в срезах (может конфликтовать с black)
+    "E302",  # Expected 2 blank lines между функциями
+    "RUF001",  # отключаем подчеркивание кириллицы с
+    "RUF002",  # отключаем подчеркивание кириллицы В
+    "RUF003",  # отключаем подчеркивание кириллицы ОС и тд.
+    "D100",  # докстринг для модуля.
+    "D413"  # подчеркивание аргов в досктринге.
+]
+
+# Максимальная длина строки (по умолчанию 88, как в black)
+line-length = 120
+
+# Настройки для isort (сортировка импортов)
+[tool.ruff.lint.isort]
+known-first-party = ["my_package"]  # Укажите ваши пакеты
+known-third-party = ["requests", "numpy"]  # Укажите сторонние пакеты
+
+# Настройки для flake8-bugbear
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["my_custom_immutable_call"]
+
+# Настройки для flake8-comprehensions
+[tool.ruff.lint.flake8-comprehensions]
+allow-dict-calls-with-keyword-arguments = true
+
+# Настройки для pyupgrade
+[tool.ruff.lint.pyupgrade]
+keep-runtime-typing = false  # Автоматически обновлять аннотации типов
+
+[tool.ruff.format]
+quote-style = "double"  # Приоритет на двойные кавычки
+
+[tool.mypy]
+strict = true  # строгая проверка вкл.
