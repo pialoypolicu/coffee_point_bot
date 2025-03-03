@@ -157,15 +157,17 @@ async def get_contacts(callback: CallbackQuery) -> None:
     await callback.message.answer(contacts_text, reply_markup=kb.back_to_start_keyboard)
 
 @user_router.callback_query(F.data == "back_to_start")
-async def back_to_start(callback: CallbackQuery) -> None:
+async def back_to_start(callback: CallbackQuery, state: FSMContext) -> None:
     """Роутер колбека кнопки 'Назад в начало'.
 
     Возвращает пользователя к стартовому меню.
 
     Args:
         callback: объект входящий запрос колбека кнопки обратного вызова на inline keyboard
+        state: состояние памяти.
     """
     await callback.answer("В начало.")
+    await state.clear()
     is_admin_user = callback.from_user.id in ADMIN_IDS
     start_keyboard = kb.create_main_keyboard(is_admin_user)
     await callback.message.answer("Вы вернулись в начало.", reply_markup=start_keyboard)
