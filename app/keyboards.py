@@ -15,6 +15,12 @@ TYPE_ITEM = Literal["drink_item_", "update_item_", "ingredient_item_"]
 back_to_start_keyboard = InlineKeyboardMarkup(
     inline_keyboard=[[InlineKeyboardButton(text="Вернуться в начало", callback_data="back_to_start")]]
 )
+back_to_start_or_send_review_keyboard = InlineKeyboardMarkup(
+    inline_keyboard=[
+        [InlineKeyboardButton(text="Отправить без фото", callback_data="send_review")],
+        [back_to_start_keyboard.inline_keyboard[0][0]],
+    ]
+)
 
 # кнопка назад, возвращает клиента к списку ингредиентов.
 back_to_ingredients = InlineKeyboardMarkup(
