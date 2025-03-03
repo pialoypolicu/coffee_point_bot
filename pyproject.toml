@@ -50,3 +50,6 @@ quote-style = "double"  # Приоритет на двойные кавычки
 
 [tool.mypy]
 strict = true  # строгая проверка вкл.
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
