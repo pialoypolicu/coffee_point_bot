@@ -4,7 +4,8 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
 from app.keyboards import back_to_start_keyboard, back_to_start_or_send_review_keyboard, inline_feedback
-from app.logic.feedback import FEEDBACK_TYPES, LogicFeedback
+from app.logger import Logger
+from app.logic.feedback import LogicFeedback
 from app.middlewares.feedback import LogicFeedbackMiddleware
 from app.states import FeedbackForm
 
@@ -13,16 +14,11 @@ feedback_router.message.middleware(LogicFeedbackMiddleware(LogicFeedback()))
 feedback_router.callback_query.middleware(LogicFeedbackMiddleware(LogicFeedback()))
 
 
-# сообщение информирующее какой выбран тип ОС + о предстоящих шагах.
-FEEDBACK_STEPS_MSG = ("Вы выбрали *{feedback_type_rus}*\\.\n*Шаги для заполнения формы:*\n"
-                    "\\- *Имя*\n"
-                    "\\- *Текст*\n"
-                    "\\- *Фото* \\(*не обязательно*\\)\n\n"
-                        "*Введите ваше имя*:")
-# сообщение о выборе после нажатия кклавиши.
-ANSWER_MSG = "Вы выбрали {feedback_type_rus}"
+START_FEEDBACK_MSG = "Давайте заполним форму обратной связи\\.\n\n*Выберете тип обратной связи*:"
 # сообщение  нструкция для отправки сообщения ОС,
-NAME_FORM_MSG = "{name}, что бы оставить *{feedback_type_rus}*, введите сообщение:"
+NAME_FORM_MSG = "{name}, что бы оставить *{feedback_type_rus}*, пожалуйста, введите сообщение:"
+# если клиент прикрепляет не фото, когда хендлер ожидает исключительно только фото.
+PHOTO_WRONG_MSG = "Пожалуйста, *прикрепите через скрепочку фотографию* или нажмите *Отправить без фото*\\."
 
 
 @feedback_router.callback_query(F.data == "feedback")
@@ -33,31 +29,23 @@ async def start_feedback_form(callback: CallbackQuery, state: FSMContext) -> Non
         callback: объект входящий запрос колбека кнопки обратного вызова на inline keyboard
         state: Состояния памяти.
     """
-    msg = "Давайте заполним форму обратной связи\\.\n\n*Выберете тип обратной связи*:"
     await callback.answer("Вы выбрали Оставить отзыв/предложение.")
     await state.clear()  # Сбрасываем состояние, если форма уже была запущена
     await state.set_state(FeedbackForm.waiting_for_feedback_type)
-    await callback.message.reply(msg, reply_markup=inline_feedback, parse_mode=ParseMode.MARKDOWN_V2)
+    await callback.message.answer(START_FEEDBACK_MSG, reply_markup=inline_feedback, parse_mode=ParseMode.MARKDOWN_V2)
 
 @feedback_router.callback_query(FeedbackForm.waiting_for_feedback_type)
-async def feedback_type_form(callback: CallbackQuery, state: FSMContext) -> None:
+async def feedback_type_form(callback: CallbackQuery, state: FSMContext, logic_feedback: LogicFeedback) -> None:
     """получаем тип ОС, это предложение suggestion или review отзыв.
 
     Args:
         callback: объект входящий запрос колбека кнопки обратного вызова на inline keyboard
         state: Состояния памяти.
+        logic_feedback: логикиа оформления обратной связи."
     """
-    feedback_type = callback.data.split(":")[1]  # Извлекаем 'suggestion' или 'review'
-    feedback_type_rus = FEEDBACK_TYPES[feedback_type]
-    msg = FEEDBACK_STEPS_MSG.format(feedback_type_rus=feedback_type_rus)
-    answer_msg = ANSWER_MSG.format(feedback_type_rus=feedback_type_rus)
+    await logic_feedback.process_feedback_type_form(callback, state)
 
-    await callback.answer(answer_msg)
-    await state.update_data(feedback_type=feedback_type, feedback_type_rus=feedback_type_rus)
-    await state.set_state(FeedbackForm.waiting_for_name)
-    await callback.message.reply(msg, reply_markup=back_to_start_keyboard, parse_mode=ParseMode.MARKDOWN_V2)
-
-@feedback_router.message(FeedbackForm.waiting_for_name)
+@feedback_router.message(FeedbackForm.waiting_for_name, F.text)
 async def feedback_name_form(message: Message, state: FSMContext) -> None:
     """получаем имя пользователя.
 
@@ -69,9 +57,22 @@ async def feedback_name_form(message: Message, state: FSMContext) -> None:
     name = message.text.capitalize()
     msg = NAME_FORM_MSG.format(name=name, feedback_type_rus=state_data["feedback_type_rus"].lower())
 
-    await state.update_data(name=name)
     await state.set_state(FeedbackForm.waiting_for_text)
-    await message.reply(msg, reply_markup=back_to_start_keyboard, parse_mode=ParseMode.MARKDOWN_V2)
+    message_for_user = await message.answer(msg, reply_markup=back_to_start_keyboard, parse_mode=ParseMode.MARKDOWN_V2)
+    await state.update_data(name=name, msg_id=message_for_user.message_id)
+
+@feedback_router.message(FeedbackForm.waiting_for_text, ~F.text)  # '~' ожидаем все что угодно, кроме текстового сообщ.
+@feedback_router.message(FeedbackForm.waiting_for_name, ~F.text)
+async def handle_non_text_message(message: Message, state: FSMContext) -> None:
+    """Обрабатывает некорректные сообщения (не текст) в состоянии waiting_for_name."""
+    state_data = await state.get_data()
+    if msg_id := state_data.get("msg_id"):
+        await message.bot.send_message(text="Пожалуйста, введите текстовое сообщение.",
+                                       chat_id=message.chat.id,
+                                       reply_to_message_id=msg_id,
+                                       reply_markup=back_to_start_keyboard)
+    else:
+        await message.answer("Пожалуйста, введите текстовое сообщение", reply_markup=back_to_start_keyboard)
 
 # TODO: нужно согласие для телефона.
 # @feedback_router.message(FeedbackForm.waiting_for_phone)
@@ -81,7 +82,7 @@ async def feedback_name_form(message: Message, state: FSMContext) -> None:
 #     await state.set_state(FeedbackForm.waiting_for_feedback_type)
 #     await message.reply("Выберите тип обратной связи:", reply_markup=inline_feedback)
 
-@feedback_router.message(FeedbackForm.waiting_for_text)
+@feedback_router.message(FeedbackForm.waiting_for_text, F.text)
 async def feedback_text_form(message: Message, state: FSMContext) -> None:
     """получаем текст предложения/отзыва.
 
@@ -89,11 +90,11 @@ async def feedback_text_form(message: Message, state: FSMContext) -> None:
         message: объект сообщения.
         state: Состояния памяти.
     """
-    await state.update_data(text=message.text)
     await state.set_state(FeedbackForm.photo)
-    await message.reply("Загрузите фотографию\\. \\(*Не обязательно*\\.\\)",
-                        reply_markup=back_to_start_or_send_review_keyboard,
-                        parse_mode=ParseMode.MARKDOWN_V2)
+    message_for_user = await message.answer("Загрузите фотографию\\. \\(*Не обязательно*\\.\\)",
+                                            reply_markup=back_to_start_or_send_review_keyboard,
+                                            parse_mode=ParseMode.MARKDOWN_V2)
+    await state.update_data(text=message.text, msg_id=message_for_user.message_id)
 
 @feedback_router.message(FeedbackForm.photo, F.photo)
 async def feedback_photo_form(message: Message, state: FSMContext, logic_feedback: LogicFeedback) -> None:
@@ -106,6 +107,22 @@ async def feedback_photo_form(message: Message, state: FSMContext, logic_feedbac
     """
     await state.update_data(photo=message.photo[-1].file_id)
     await logic_feedback.process_feedback_completion(message, state)
+
+@feedback_router.message(FeedbackForm.photo, ~F.photo)  # '~' ожидаем все что угодно, кроме фото.
+async def handle_non_photo_message(message: Message, state: FSMContext, logger: Logger) -> None:
+    """Обрабатывает некорректные сообщения (не текст) в состоянии waiting_for_name."""
+    logger.log("не корректные данные, ждем фото.", level="warning")
+    state_data = await state.get_data()
+    if msg_id := state_data.get("msg_id"):
+        await message.bot.send_message(text=PHOTO_WRONG_MSG,
+                                    reply_markup=back_to_start_or_send_review_keyboard,
+                                    chat_id=message.chat.id,
+                                    reply_to_message_id=msg_id,
+                                    parse_mode=ParseMode.MARKDOWN_V2)
+    else:
+        message.answer(PHOTO_WRONG_MSG,
+                       reply_markup=back_to_start_or_send_review_keyboard,
+                       parse_mode=ParseMode.MARKDOWN_V2)
 
 @feedback_router.callback_query(F.data == "send_review")
 async def feedback_photo_optional(callback: CallbackQuery, state: FSMContext, logic_feedback: LogicFeedback) -> None:
