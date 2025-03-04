@@ -1,5 +1,5 @@
 import asyncio
-from random import random
+import random
 
 from aiogram import F, Router
 from aiogram.enums import ChatAction
@@ -21,7 +21,7 @@ async def wait_typing(message: Message) -> None:
     if (bot := message.bot) and (user := message.from_user):
         await bot.send_chat_action(chat_id=user.id,
                                         action=ChatAction.TYPING)
-        await asyncio.sleep(random())
+        await asyncio.sleep(random.uniform(0.1, 0.5))
 
 @user_router.message(CommandStart())
 async def cmd_start(message: Message, state: FSMContext) -> None:
@@ -157,15 +157,17 @@ async def get_contacts(callback: CallbackQuery) -> None:
     await callback.message.answer(contacts_text, reply_markup=kb.back_to_start_keyboard)
 
 @user_router.callback_query(F.data == "back_to_start")
-async def back_to_start(callback: CallbackQuery) -> None:
+async def back_to_start(callback: CallbackQuery, state: FSMContext) -> None:
     """Роутер колбека кнопки 'Назад в начало'.
 
     Возвращает пользователя к стартовому меню.
 
     Args:
         callback: объект входящий запрос колбека кнопки обратного вызова на inline keyboard
+        state: состояние памяти.
     """
     await callback.answer("В начало.")
+    await state.clear()
     is_admin_user = callback.from_user.id in ADMIN_IDS
     start_keyboard = kb.create_main_keyboard(is_admin_user)
     await callback.message.answer("Вы вернулись в начало.", reply_markup=start_keyboard)

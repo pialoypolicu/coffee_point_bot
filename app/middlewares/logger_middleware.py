@@ -1,4 +1,5 @@
-from typing import Any, Awaitable, Callable
+from collections.abc import Awaitable
+from typing import Any, Callable
 
 from aiogram import BaseMiddleware
 from aiogram.types import TelegramObject
@@ -29,10 +30,12 @@ class LoggingMiddleware(BaseMiddleware):
             data: dict[str, Any],
             ) -> Any:
         """Логируем входящее событие."""
+        parsed_data = self.logger.parse_data(event.model_dump() if hasattr(event, "model_dump") else event)
         self.logger.log(
             f"Входящее событие: {event.__class__.__name__}, "
-            f"данные: {event.model_dump() if hasattr(event, 'model_dump') else event}"
+            f"данные: {parsed_data}"
         )
+        data["logger"] = self.logger
 
         try:
             # Продолжаем выполнение цепочки middleware и обработчиков

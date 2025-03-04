@@ -1,7 +1,6 @@
-from datetime import datetime
 from typing import TypedDict
 
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -20,12 +19,6 @@ class UserDataHint(TypedDict):
     full_name: str | None
     last_name: str | None
     been_deleted: bool | None
-
-class UserUpdateHint(TypedDict):
-    """Данные юзера для обновления."""
-
-    name: str
-    update_dt: datetime
 
 
 @connection
@@ -74,27 +67,3 @@ async def get_igredient_photo(session: AsyncSession, item_id: str) -> Ingredient
     result = await session.execute(stmt)
     res = result.scalar_one_or_none()
     return res.ingredient_to_dict()
-
-@connection
-async def update_user(session: AsyncSession, user_id: int, data: UserUpdateHint) -> None:
-    """Обновление юзера.
-
-    Args:
-        session: асинхронная сессия движка sqlalchemy
-        user_id: id пользователя. НЕ телеграм id
-        data: новые параметры пользователя.
-    """
-    stmt = update(User).where(User.id == user_id).values(**data)
-    await session.execute(stmt)
-    await session.commit()
-
-@connection
-async def get_user_id(session: AsyncSession, tg_user_id: int) -> int:
-    """Получаем id пользователя. Не телеграм id.
-
-    Args:
-        session (AsyncSession): асинхронная сессия движка sqlalchemy
-        tg_user_id (int): телеграм id пользователя.
-    """
-    stmt = select(User.id).where(User.tg_id == tg_user_id)
-    return await session.scalar(stmt)

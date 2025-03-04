@@ -1,19 +1,61 @@
+from datetime import datetime
+from typing import TypedDict
+
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database.models import FeedBack, Photo
+from app.database.models import FeedBack, Photo, User
 from app.database.requests.base import connection
 
 
-@connection
-async def create_feedback(session: AsyncSession, data: dict[str, str | int]):
-    """создаем отзыв/предложение клиента.
+class UserUpdateHint(TypedDict):
+    """Данные юзера для обновления."""
 
-    Args:
-        session: асинхронная сессия движка sqlalchemy
-    """
-    feedback = FeedBack(text=data["text"], feedback_type=data["feedback_type"], user_id=data["user_id"])
-    Photo(photo_string=data["photo"], feedback=feedback)
-    # User(user=feedback)
+    name: str
+    update_dt: datetime
 
-    session.add(feedback)
-    await session.commit()
+
+class FeedbackContext:
+    """Класс для взаимодействия с БД."""
+
+    @staticmethod
+    @connection
+    async def create_feedback(session: AsyncSession, data: dict[str, str | int]) -> None:
+        """создаем отзыв/предложение клиента.
+
+        Args:
+            session: асинхронная сессия движка sqlalchemy
+            data: словарь содержит значения отзыва/предложения.
+        """
+        feedback = FeedBack(text=data["text"], feedback_type=data["feedback_type"], user_id=data["user_id"])
+        if photo := data.get("photo"):
+            Photo(photo_string=photo, feedback=feedback)
+
+        session.add(feedback)
+        await session.commit()
+
+    @staticmethod
+    @connection
+    async def get_user_id(session: AsyncSession, tg_user_id: int) -> int:
+        """Получаем id пользователя. Не телеграм id.
+
+        Args:
+            session (AsyncSession): асинхронная сессия движка sqlalchemy
+            tg_user_id (int): телеграм id пользователя.
+        """
+        stmt = select(User.id).where(User.tg_id == tg_user_id)
+        return await session.scalar(stmt)
+
+    @staticmethod
+    @connection
+    async def update_user(session: AsyncSession, user_id: int, data: UserUpdateHint) -> None:
+        """Обновление юзера.
+
+        Args:
+            session: асинхронная сессия движка sqlalchemy
+            user_id: id пользователя. НЕ телеграм id
+            data: новые параметры пользователя.
+        """
+        stmt = update(User).where(User.id == user_id).values(**data)
+        await session.execute(stmt)
+        await session.commit()
