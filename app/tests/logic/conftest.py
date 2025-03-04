@@ -18,7 +18,7 @@ class LogicFeedbackData(TypedDict):
 @pytest.fixture(params=["photo_file_id", None])
 def logic_feedback_data(request: pytest.FixtureRequest,
                         mock_state: AsyncMock,
-                        mock_feedback: AsyncMock,
+                        mock_logic_feedback: AsyncMock,
                         mock_message: AsyncMock) -> LogicFeedbackData:
     """Фикстура подготавливает динамические данные.
 
@@ -27,7 +27,7 @@ def logic_feedback_data(request: pytest.FixtureRequest,
     Args:
         request: параметризация теста.
         mock_state: состояние памяти.
-        mock_feedback: логика работы с отзывами.
+        mock_logic_feedback: логика работы с отзывами.
         mock_message: сообщение клиента.
     """
     photo = request.param
@@ -42,7 +42,7 @@ def logic_feedback_data(request: pytest.FixtureRequest,
         final_feedback_msg += "Фото: Не загружено\n\n"
     final_feedback_msg += r"*Спасибо за обратную связь\!*"
 
-    mock_feedback.get_user_id.return_value = 123
+    mock_logic_feedback.get_user_id.return_value = 123
 
     mock_state.get_data.return_value = {
         "name": name,
@@ -54,7 +54,7 @@ def logic_feedback_data(request: pytest.FixtureRequest,
     return {"state": mock_state,
             "message": mock_message,
             "expected_final_msg": final_feedback_msg,
-            "logic_feedback": mock_feedback}
+            "logic_feedback": mock_logic_feedback}
 
 @pytest.fixture()
 def main_keyboard() -> InlineKeyboardMarkup:

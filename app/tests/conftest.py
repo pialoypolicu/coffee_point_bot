@@ -13,6 +13,7 @@ def f_mock_message() -> AsyncMock:
     message = AsyncMock(spec=Message)
     message.from_user = AsyncMock(spec=User)
     message.reply = AsyncMock()  # Мокируем метод reply
+    message.answer = AsyncMock()  # Мокируем метод answer
     return message
 
 @pytest.fixture()
@@ -25,7 +26,7 @@ def mock_state() -> FSMContext:
     state.clear = AsyncMock()
     return state
 
-@pytest.fixture(name="mock_feedback")
+@pytest.fixture(name="mock_logic_feedback")
 def f_mock_feedback() -> LogicFeedback:
     """Мокируем методы LogicFeedback."""
     logic_feedback = LogicFeedback()
