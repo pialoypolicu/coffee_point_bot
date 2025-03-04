@@ -123,3 +123,22 @@ class Logger:
                 if (now - file_creation_time).days > 30:  # Удаляем файлы старше 30 дней
                     os.remove(file_path)
                     self.log(f"Удален старый лог-файл: {filename}", level="info")
+
+    @staticmethod
+    def parse_data(event: Any) -> Any:
+        """парсим данные сообщения хендлера.
+
+        Args:
+            event: объект хендлера.
+        """
+        d = {"data": event.get("data")}
+        if user := event.get("from_user"):
+            d |= {
+                "user_tg_id": user.get("id"),
+                "first_name": user.get("first_name"),
+                "last_name": user.get("last_name"),
+                "username": user.get("username"),
+                  }
+        if message := event.get("message"):
+            d |= {"msg_text": message.get("text")}
+        return d
