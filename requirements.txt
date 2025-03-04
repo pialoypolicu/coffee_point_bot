@@ -9,3 +9,6 @@ openai==1.63.0
 
 # env
 python-dotenv==1.0.1
+
+# log
+colorlog==6.9.0
