@@ -1,5 +1,5 @@
 import asyncio
-from random import random
+import random
 
 from aiogram import F, Router
 from aiogram.enums import ChatAction
@@ -21,7 +21,7 @@ async def wait_typing(message: Message) -> None:
     if (bot := message.bot) and (user := message.from_user):
         await bot.send_chat_action(chat_id=user.id,
                                         action=ChatAction.TYPING)
-        await asyncio.sleep(random())
+        await asyncio.sleep(random.uniform(0.1, 0.5))
 
 @user_router.message(CommandStart())
 async def cmd_start(message: Message, state: FSMContext) -> None:
