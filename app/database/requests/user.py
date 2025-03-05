@@ -21,49 +21,55 @@ class UserDataHint(TypedDict):
     been_deleted: bool | None
 
 
-@connection
-async def set_user(session: AsyncSession, user_data: UserDataHint) -> None:
-    """Создаем пользователя при нажатии кнопки /start, его нет в БД.
+class UserContext:
+    """класс с логикой при взаимодействии клиента с ботом."""
 
-    Args:
-        session: асинхронная сессия движка sqlalchemy
-        user_data (UserDataHint): параметры пользователя.
-    """
-    user = await session.scalar(select(User).where(User.tg_id == user_data["tg_id"]))
-    if not user:
-        session.add(User(**user_data))
-        await session.commit()
+    @staticmethod
+    @connection
+    async def set_user(session: AsyncSession, user_data: UserDataHint) -> None:
+        """Создаем пользователя при нажатии кнопки /start, его нет в БД.
 
-@connection
-async def get_drink(session: AsyncSession, item_id: str) -> DrinkResult:
-    """Получаем напиток.
+        Args:
+            session: асинхронная сессия движка sqlalchemy
+            user_data (UserDataHint): параметры пользователя.
+        """
+        user = await session.scalar(select(User).where(User.tg_id == user_data["tg_id"]))
+        if not user:
+            session.add(User(**user_data))
+            await session.commit()
 
-    Args:
-        session: асинхронная сессия движка sqlalchemy
-        item_id: значение хранящее id записи, например item_1
-    """
-    id_ = int(item_id.split("_")[-1])
-    stmt = select(Drink).where(Drink.id == id_).options(
-        selectinload(Drink.photos),
-        selectinload(Drink.ingredients)
-    )  # TODO: возможно можно еще как то сделать, что бы подгружались фото ингредиентов по связи.
-    result = await session.execute(stmt)
-    res = result.scalar_one_or_none()
-    drink = res.drink_to_dict()
-    return drink
+    @staticmethod
+    @connection
+    async def get_drink(session: AsyncSession, item_id: str) -> DrinkResult:
+        """Получаем напиток.
 
-@connection
-async def get_igredient_photo(session: AsyncSession, item_id: str) -> IngredientResult:
-    """Получаем ингредиент с фотографией благодаря relationship.
+        Args:
+            session: асинхронная сессия движка sqlalchemy
+            item_id: значение хранящее id записи, например item_1
+        """
+        id_ = int(item_id.split("_")[-1])
+        stmt = select(Drink).where(Drink.id == id_).options(
+            selectinload(Drink.photos),
+            selectinload(Drink.ingredients)
+        )  # TODO: возможно можно еще как то сделать, что бы подгружались фото ингредиентов по связи.
+        result = await session.execute(stmt)
+        res = result.scalar_one_or_none()
+        drink = res.drink_to_dict()
+        return drink
 
-    Args:
-        session: асинхронная сессия движка sqlalchemy
-        item_id: значение хранящее id записи, например ingredient_item_3
-    """
-    id_ = int(item_id.split("_")[-1])
-    stmt = select(Ingredient).where(Ingredient.id == id_).options(
-        selectinload(Ingredient.photos),
-    )
-    result = await session.execute(stmt)
-    res = result.scalar_one_or_none()
-    return res.ingredient_to_dict()
+    @staticmethod
+    @connection
+    async def get_igredient_photo(session: AsyncSession, item_id: str) -> IngredientResult:
+        """Получаем ингредиент с фотографией благодаря relationship.
+
+        Args:
+            session: асинхронная сессия движка sqlalchemy
+            item_id: значение хранящее id записи, например ingredient_item_3
+        """
+        id_ = int(item_id.split("_")[-1])
+        stmt = select(Ingredient).where(Ingredient.id == id_).options(
+            selectinload(Ingredient.photos),
+        )
+        result = await session.execute(stmt)
+        res = result.scalar_one_or_none()
+        return res.ingredient_to_dict()
