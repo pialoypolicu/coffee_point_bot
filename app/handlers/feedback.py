@@ -63,16 +63,20 @@ async def feedback_name_form(message: Message, state: FSMContext) -> None:
 
 @feedback_router.message(FeedbackForm.waiting_for_text, ~F.text)  # '~' ожидаем все что угодно, кроме текстового сообщ.
 @feedback_router.message(FeedbackForm.waiting_for_name, ~F.text)
-async def handle_non_text_message(message: Message, state: FSMContext) -> None:
+async def handle_non_text_message(message: Message, state: FSMContext, logger: Logger) -> None:
     """Обрабатывает некорректные сообщения (не текст) в состоянии waiting_for_name."""
+    msg = "Пожалуйста, введите текстовое сообщение."
+    logger.add_message += "\nХендлер ждет текстового сообщения, клиент отправил что то другое."
+    logger.level = "warning"
+
     state_data = await state.get_data()
     if msg_id := state_data.get("msg_id"):
-        await message.bot.send_message(text="Пожалуйста, введите текстовое сообщение.",
+        await message.bot.send_message(text=msg,
                                        chat_id=message.chat.id,
                                        reply_to_message_id=msg_id,
                                        reply_markup=back_to_start_keyboard)
     else:
-        await message.answer("Пожалуйста, введите текстовое сообщение", reply_markup=back_to_start_keyboard)
+        await message.answer(msg, reply_markup=back_to_start_keyboard)
 
 # TODO: нужно согласие для телефона.
 # @feedback_router.message(FeedbackForm.waiting_for_phone)
