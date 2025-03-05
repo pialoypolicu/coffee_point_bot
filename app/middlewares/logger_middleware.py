@@ -40,7 +40,6 @@ class LoggingMiddleware(BaseMiddleware):
         # )
 
         data["logger"] = self.logger
-
         try:
             # Продолжаем выполнение цепочки middleware и обработчиков
             result = await handler(event, data)

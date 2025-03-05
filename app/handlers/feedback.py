@@ -6,12 +6,9 @@ from aiogram.types import CallbackQuery, Message
 from app.keyboards import back_to_start_keyboard, back_to_start_or_send_review_keyboard, inline_feedback
 from app.logger import Logger
 from app.logic.feedback import LogicFeedback
-from app.middlewares.feedback import LogicFeedbackMiddleware
 from app.states import FeedbackForm
 
 feedback_router = Router()
-feedback_router.message.middleware(LogicFeedbackMiddleware(LogicFeedback()))
-feedback_router.callback_query.middleware(LogicFeedbackMiddleware(LogicFeedback()))
 
 
 START_FEEDBACK_MSG = "Давайте заполним форму обратной связи\\.\n\n*Выберете тип обратной связи*:"
