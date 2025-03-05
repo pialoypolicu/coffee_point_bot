@@ -30,11 +30,15 @@ class LoggingMiddleware(BaseMiddleware):
             data: dict[str, Any],
             ) -> Any:
         """Логируем входящее событие."""
-        parsed_data = self.logger.parse_data(event.model_dump() if hasattr(event, "model_dump") else event)
-        self.logger.log(
-            f"Входящее событие: {event.__class__.__name__}, "
-            f"данные: {parsed_data}"
-        )
+        self.logger.reset_logger_params()
+        await self.logger.create_log_context(event, data)
+
+        # TODO: первая итерация и вторая итерация с логами не отличается.
+        # уместно будет, когда реализуем возврат хендлеров. что бы логировать, наа входе было это, а отдали вот это.
+        # self.logger.log(
+        #     f"Входящее событие: {event.__class__.__name__}, "
+        # )
+
         data["logger"] = self.logger
 
         try:
