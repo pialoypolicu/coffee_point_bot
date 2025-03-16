@@ -22,6 +22,6 @@ class LogicFeedbackMiddleware(BaseMiddleware):
                        handler: Callable[[TelegramObject, dict[str, Any]], Awaitable[Any]],
                        event: TelegramObject,
                        data: dict[str, Any]) -> Any:
-        """Вызоваа middleware."""
+        """Вызова middleware."""
         data["logic_feedback"] = self.logic_feedback
         return await handler(event, data)

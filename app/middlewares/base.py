@@ -12,7 +12,7 @@ from app.logic.user_logic import UserLogic
 from app.middlewares.ai_gen_middleware import AIGenLogicMiddleware
 from app.middlewares.feedback import LogicFeedbackMiddleware
 from app.middlewares.logger_middleware import LoggingMiddleware
-from app.middlewares.user_middleware import UserLogickMiddleware
+from app.middlewares.user_middleware import UserLogicMiddleware
 
 load_dotenv()
 
@@ -43,8 +43,8 @@ def activate_middlewares(dp: Dispatcher, routers: Any) -> None:
     routers.feedback_router.message.middleware(LogicFeedbackMiddleware(logic_feedback))
     routers.feedback_router.callback_query.middleware(LogicFeedbackMiddleware(logic_feedback))
 
-    routers.user_router.message.middleware(UserLogickMiddleware(user_logic))
-    routers.user_router.callback_query.middleware(UserLogickMiddleware(user_logic))
+    routers.user_router.message.middleware(UserLogicMiddleware(user_logic))
+    routers.user_router.callback_query.middleware(UserLogicMiddleware(user_logic))
 
     routers.ai_router.callback_query.middleware(AIGenLogicMiddleware(ai_generator_logic))
 
