@@ -156,10 +156,13 @@ async def back_to_start(callback: CallbackQuery, state: FSMContext) -> None:
     """
     await callback.answer("В начало.")
     state_date = await state.get_data()
+    # TODO: как то унифицировать логику удаления сообщений.
     if msgs_to_del := state_date.get("drink_msgs"):
         await delete_messages(callback, list(msgs_to_del.values()))
     if ingredients_to_del := state_date.get("ingredient_item_msgs_to_delete"):
         await delete_messages(callback, ingredients_to_del)
+    if msg_for_delete := state_date.get("msg_for_delete"):
+        await delete_messages(callback, msg_for_delete)
     await state.clear()
     is_admin_user = callback.from_user.id in ADMIN_IDS
     start_keyboard = kb.create_main_keyboard(is_admin_user)
