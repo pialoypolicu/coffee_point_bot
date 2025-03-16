@@ -44,6 +44,7 @@ def create_main_keyboard(is_admin: bool) -> InlineKeyboardMarkup:
             InlineKeyboardButton(text="Напитки", callback_data="drinks"),
             InlineKeyboardButton(text="Контакты", callback_data="contacts"),
         ],
+        [InlineKeyboardButton(text="Отличного дня!", callback_data="good_wish")],
         [InlineKeyboardButton(text="Оставить отзыв/предложение", callback_data="feedback")],
     ]
     if is_admin:  # Добавляем кнопку Admin
