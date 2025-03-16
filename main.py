@@ -17,7 +17,7 @@ async def main() -> None:
     dp = Dispatcher()
 
     dp.startup.register(startup)
-    dp.include_routers(routers.admin_router, routers.feedback_router, routers.user_router)
+    dp.include_routers(routers.admin_router, routers.feedback_router, routers.user_router, routers.ai_router)
 
     await dp.start_polling(bot)
     dp.shutdown.register(shutdown)

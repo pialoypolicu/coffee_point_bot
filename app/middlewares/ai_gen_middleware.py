@@ -4,24 +4,24 @@ from typing import Any, Callable
 from aiogram import BaseMiddleware
 from aiogram.types import TelegramObject
 
-from app.logic.feedback import LogicFeedback
+from app.logic.ai_gen_logic import AIGeneratorLogic
 
 
-class LogicFeedbackMiddleware(BaseMiddleware):
-    """Middleware для внедрения LogicFeedback."""
+class AIGenLogicMiddleware(BaseMiddleware):
+    """Middleware для внедрения AIGeneratorLogic."""
 
-    def __init__(self, logic_feedback: LogicFeedback) -> None:
+    def __init__(self, aigen_logic: AIGeneratorLogic) -> None:
         """конструктор middleware.
 
         Args:
-            logic_feedback: логика для работы с отзывами
+            aigen_logic: логика работы с openai.
         """
-        self.logic_feedback = logic_feedback
+        self.aigen_logic = aigen_logic
 
     async def __call__(self,
                        handler: Callable[[TelegramObject, dict[str, Any]], Awaitable[Any]],
                        event: TelegramObject,
                        data: dict[str, Any]) -> Any:
-        """Вызова middleware."""
-        data["logic_feedback"] = self.logic_feedback
+        """Вызов middleware."""
+        data["aigen_logic"] = self.aigen_logic
         return await handler(event, data)

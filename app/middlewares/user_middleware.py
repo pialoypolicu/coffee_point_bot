@@ -7,7 +7,7 @@ from aiogram.types import TelegramObject
 from app.logic.user_logic import UserLogic
 
 
-class UserLogickMiddleware(BaseMiddleware):
+class UserLogicMiddleware(BaseMiddleware):
     """Middleware для внедрения LogicFeedback."""
 
     def __init__(self, user_logic: UserLogic) -> None:
@@ -22,6 +22,6 @@ class UserLogickMiddleware(BaseMiddleware):
                        handler: Callable[[TelegramObject, dict[str, Any]], Awaitable[Any]],
                        event: TelegramObject,
                        data: dict[str, Any]) -> Any:
-        """Вызоваа middleware."""
+        """Вызов middleware."""
         data["user_logic"] = self.user_logic
         return await handler(event, data)
