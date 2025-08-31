@@ -4,8 +4,8 @@ from aiogram.enums.parse_mode import ParseMode
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
+from app.configs import ADMIN_IDS
 from app.database.requests.feedback import FeedbackContext
-from app.handlers.admin import ADMIN_IDS
 from app.keyboards import back_to_start_keyboard, create_main_keyboard
 from app.states import FeedbackForm
 

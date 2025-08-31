@@ -2,16 +2,19 @@ from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
+from dotenv import load_dotenv
 
+from app.configs import ADMIN_IDS
 from app.database.requests.admin import IngredientHint, set_drink, set_ingredient
 from app.database.requests.keyboards import get_names
 from app.helpers import update_ingredient_ids
 from app.keyboards import create_main_keyboard, inline_admin_menu, inline_builder
 from app.states import Ingredient
 
+load_dotenv()
+
 admin_router = Router()
 
-ADMIN_IDS = (223957535,)  # tg id админа.
 
 class Admin:
     def __call__(self, message: Message) -> bool:
