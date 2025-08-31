@@ -1,7 +1,12 @@
+from datetime import datetime
+
+import pytz
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery
 
 from app.database.requests.admin import DrinkHint
+
+MOSCOW_TZ = pytz.timezone("Europe/Moscow")  # кеширование часового пояса.
 
 
 async def delete_messages(callback: CallbackQuery, msg_ids_fro_delete: list[int]) -> None:
@@ -28,3 +33,8 @@ async def update_ingredient_ids(state: FSMContext, ingredient_id: int) -> list[i
     data["ingredient_ids"].append(ingredient_id)
     await state.update_data(ingredient_ids=data["ingredient_ids"])
     return data["ingredient_ids"]
+
+def get_moscow_time() -> str:
+    """Получить московское время, в формате 'hh:mm'."""
+    moscow_time = datetime.now(MOSCOW_TZ)
+    return moscow_time.strftime("%H:%M")
