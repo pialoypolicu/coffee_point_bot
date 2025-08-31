@@ -2,6 +2,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery
 from openai import AsyncOpenAI
 
+from app.helpers import get_moscow_time
 from app.keyboards import back_to_start_keyboard
 
 
@@ -18,15 +19,21 @@ class AIGeneratorLogic:
             callback: объект входящий запрос колбека кнопки обратного вызова на inline keyboard
             state: Состояния памяти.
         """
+        msc_time = get_moscow_time()
+        msg_for_chat = ("Доброе пожелание, на русском языке, человеку, который любит кофе. "
+                        "Пожелание обезличенно, так как не изветно, это будет читать мужчина или женщина. "
+                        "Не более 200 символов и сразу выдай финальный ответ, без своих дополнений. "
+                        f"Учитывай что время сейчас {msc_time}, от это зависит в ответ утро, день или вечер. "
+                        "Используй markdown для приложения teleram")
         completion = await self.ai_client.chat.completions.create(
             messages=[{
                 "role": "user",
-                "content": "Доброе пожелание на день, человеку, который любит кофе. Пожелание обезличенно, так как не изветно, это будет читать мужчина или женщина. Не более 200 символов",
+                "content": msg_for_chat,
                 }],
-            model="deepseek/deepseek-chat",
+            model="deepseek/deepseek-r1-0528:free",
             )
         text = completion.choices[0].message.content
-        await callback.message.delete()  # удаляем сообщение от генерируемое фуункцией create_main_keyboard
+        await callback.message.delete()  # удаляем сообщение от генерируемое функцией create_main_keyboard
 
         message_for_user = await callback.message.answer(text, reply_markup=back_to_start_keyboard)
         await state.update_data(msg_for_delete=[message_for_user.message_id])
