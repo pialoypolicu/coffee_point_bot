@@ -16,5 +16,17 @@ async def ai_gen_wish(callback: CallbackQuery, state: FSMContext, aigen_logic: A
         state: Состояния памяти.
         aigen_logic: логика для генерации сообщений к ИИ. Объект прилетает из AIGenLogicMiddleware.
     """
-    await callback.answer("Выбрано пожелание на день. Немного подожди.")
-    await aigen_logic.gpt_text(callback, state)
+    await callback.answer("🔄 Генерирую пожелание... Это займет несколько секунд")
+    # Меняем текст сообщения
+    await callback.message.edit_text(
+        "✨ Генерирую особенное пожелание для тебя...",
+        reply_markup=None
+    )
+    try:
+        await aigen_logic.gpt_text(callback, state)
+    except Exception:
+        # В случае ошибки показываем сообщение
+        await callback.message.edit_text(
+            "❌ Произошла ошибка при генерации. Попробуй еще раз!"
+        )
+        raise

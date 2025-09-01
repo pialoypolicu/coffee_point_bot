@@ -1,41 +1,45 @@
-from unittest.mock import AsyncMock, MagicMock, patch
-from aiogram.fsm.context import FSMContext
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from aiogram.types import InlineKeyboardMarkup, Message, User
+from aiogram.types import InlineKeyboardMarkup
 
 from app.handlers.user import cmd_start
 
 
 @pytest.mark.asyncio()
-async def test_cmd_start(test_data: dict[str, bool | int]):
-    """
-    Тест cmd_start для администратора.
-    Кнопка 'Admin' должна отображаться в клавиатуре.
-    """
-    expected, user_id = test_data["expected"], test_data["user_id"]
-    # 1. Мокируем объекты Message, FSMContext и User, чтобы имитировать администратора
-    # TODO: вынести в моки в фикстуру.
-    message_mock = AsyncMock(spec=Message)
-    message_mock.from_user = MagicMock(spec=User,
-                                       id=user_id,
-                                       username="testuser",
-                                       first_name="Test",
-                                       last_name="User",
-                                       full_name="Test User")
-    # message_mock.from_user = MagicMock(spec=User, id=user_id)  # Используем первый ID админа из ADMIN_IDS
-    message_mock.answer = AsyncMock()  # Мокируем метод answer
-    state_mock = AsyncMock(spec=FSMContext)
-    state_mock.get_data.return_value = {}
+async def test_cmd_start(
+        test_data: dict[str, bool | int],
+        user_logic_with_set_user_mock: AsyncMock,
+        mock_fms_context_with_get_data: AsyncMock,
+        mock_message_user_configure_for_cmd_start: AsyncMock,
+        mock_wait_typing: MagicMock | AsyncMock,
+        ) -> None:
+    """Тест cmd_start для администратора.
 
-    # 2. Патчим побочные эффекты (wait_typing и set_user), чтобы избежать их реального выполнения
-    with patch("app.handlers.user.wait_typing", new_callable=AsyncMock), patch("app.handlers.user.set_user", new_callable=AsyncMock):
-        await cmd_start(message_mock, state_mock)
+    Кнопка 'Admin' должна отображаться в клавиатуре.
+
+    Args:
+        test_data: словарь, в котором ждем ожидаемое значение, с ключом expected
+        user_logic_with_set_user_mock: Мок метод set_user объекта UserLogic
+        mock_fms_context_with_get_data: Мокаем get_data объекта FSMContext
+        mock_message_user_configure_for_cmd_start: Мок с параметрами объект User, который принадлежит Message
+        mock_wait_typing: Мок wait_typing
+    """
+    expected = test_data["expected"]
+
+    await cmd_start(
+            mock_message_user_configure_for_cmd_start,
+            mock_fms_context_with_get_data,
+            user_logic_with_set_user_mock,
+            )
 
     # 3. Проверки (Assertions):
-    message_mock.answer.assert_called_once()  # Проверяем, что answer был вызван один раз
-    _, kwargs = message_mock.answer.call_args  # Получаем именованные аргументы, переданные в answer
-    reply_markup = kwargs['reply_markup']
+    user_logic_with_set_user_mock.set_user.assert_awaited_once()  # проверяем вызов set_user
+    mock_fms_context_with_get_data.get_data.assert_awaited_once()  # проверяем вызов get_data
+    mock_wait_typing.assert_awaited_once()
+    mock_message_user_configure_for_cmd_start.answer.assert_called_once()  # Проверяем, что answer был вызван
+    _, kwargs = mock_message_user_configure_for_cmd_start.answer.call_args  # Получаем именованные аргументы, переданные в answer
+    reply_markup = kwargs["reply_markup"]
 
     assert isinstance(reply_markup, InlineKeyboardMarkup), "Reply markup должен быть InlineKeyboardMarkup"
 

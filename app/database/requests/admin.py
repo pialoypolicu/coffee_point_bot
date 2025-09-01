@@ -1,8 +1,9 @@
-from sqlalchemy.ext.asyncio import AsyncSession
 from typing import TypedDict
 
-from app.database.requests.base import connection
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.database.models import Drink, Ingredient, Photo
+from app.database.requests.base import connection
 
 
 class IngredientHint(TypedDict):

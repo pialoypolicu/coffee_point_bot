@@ -12,3 +12,6 @@ python-dotenv==1.0.1
 
 # log
 colorlog==6.9.0
+
+# timezone
+pytz==2025.1
