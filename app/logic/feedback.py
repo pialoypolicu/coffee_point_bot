@@ -6,11 +6,20 @@ from aiogram.types import CallbackQuery, Message
 
 from app.configs import ADMIN_IDS
 from app.database.requests.feedback import FeedbackContext
-from app.keyboards import back_to_start_keyboard, create_main_keyboard
+from app.helpers import wait_typing
+from app.keyboards import (
+    CALLBACK_BACK_TO_START,
+    back_to_start_keyboard,
+    create_main_keyboard,
+    inline_feedback,
+)
+from app.logic.user_logic import UserLogic
+from app.services.message_manager import MessageManager
 from app.states import FeedbackForm
 
 FEEDBACK_TYPES = {"suggestion": "Предложение", "review": "Отзыв"}
 
+START_FEEDBACK_MSG = "Давайте заполним форму обратной связи\\.\n\n*Выберете тип обратной связи*:"
 #  финальное сообщения после оформления ОС.
 FINAL_FEEDBACK_MSG = (
             "*Форма обратной связи заполнена:*\n\n"
@@ -30,14 +39,56 @@ ANSWER_MSG = "Вы выбрали {feedback_type_rus}"
 class LogicFeedback(FeedbackContext):
     """Класс для работы логики обратной связи."""
 
-    async def process_feedback_type_form(self, callback: CallbackQuery, state: FSMContext) -> None:
-        """обработка выбора типа ОС от клиента.
+    def __init__(self):
+        """Контрусктор логики обратной связи."""
+        self.user_logic = UserLogic()
+
+    @staticmethod
+    async def process_start_feedback_form(
+            callback: CallbackQuery,
+            state: FSMContext,
+            message_manager: MessageManager,
+            ) -> None:
+        """Логика оформления фидбека, кнопка оставить отзыв/предложение.
 
         Args:
             callback: объект входящий запрос колбека кнопки обратного вызова на inline keyboard
             state: Состояния памяти.
+            message_manager: Сервис для управления сообщениями с безопасной обработкой ошибок.
         """
-        feedback_type = callback.data.split(":")[1]  # Извлекаем 'suggestion' или 'review'
+        await wait_typing(callback)
+
+        chat_id = callback.message.chat.id
+        message_id = callback.message.message_id
+
+        await callback.answer("Вы выбрали 'Оставить отзыв/предложение'.")
+        await state.clear()  # Сбрасываем состояние, если форма уже была запущена
+        await state.set_state(FeedbackForm.waiting_for_feedback_type)
+
+        await message_manager.safe_edit_message(
+            chat_id, message_id,
+            START_FEEDBACK_MSG,
+            inline_feedback,
+            parse_mode=ParseMode.MARKDOWN_V2,
+            )
+
+    async def process_feedback_type_form(
+            self,
+            callback: CallbackQuery,
+            state: FSMContext,
+            message_manager: MessageManager,
+            ) -> None:
+        """обработка выбора типа ОС от клиента. или кнопка 'Предложение' или 'Отзыв'.
+
+        Args:
+            callback: объект входящий запрос колбека кнопки обратного вызова на inline keyboard
+            state: Состояния памяти.
+            message_manager: Сервис для управления сообщениями с безопасной обработкой ошибок.
+        """
+        if (callback_data := callback.data) == CALLBACK_BACK_TO_START:
+            await self.user_logic.execute_start_command(callback, state, message_manager)
+            return
+        feedback_type = callback_data.split(":")[1]  # Извлекаем 'suggestion' или 'review'
         feedback_type_rus = FEEDBACK_TYPES[feedback_type]
         msg = FEEDBACK_STEPS_MSG.format(feedback_type_rus=feedback_type_rus)
         answer_msg = ANSWER_MSG.format(feedback_type_rus=feedback_type_rus)
