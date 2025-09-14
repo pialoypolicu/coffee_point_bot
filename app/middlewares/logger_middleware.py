@@ -8,13 +8,13 @@ from app.logger import Logger
 
 
 class LoggingMiddleware(BaseMiddleware):
-    """прослоечкка с логированием. Интегрируется в Dispatcher.
+    """прослоечка с логированием. Интегрируется в Dispatcher.
 
     так же допустимо инициализировать в роутере, например:
 
         ```python
         @user_router.message(CommandStart())
-        async def cmd_start(message: Message, state: FSMContext, logger: Logger) -> None:
+        async def command_start_points(message: Message, state: FSMContext, logger: Logger) -> None:
             logger.log(f"Пользователь {message.from_user.id} начал работу с ботом.", level="info")
         ```
     """
