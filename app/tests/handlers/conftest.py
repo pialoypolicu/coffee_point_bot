@@ -5,9 +5,11 @@ import pytest
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery
 
+from app.database.requests.user import UserContext
 from app.handlers.feedback import NAME_FORM_MSG
 from app.logic.feedback import ANSWER_MSG, FEEDBACK_STEPS_MSG, FEEDBACK_TYPES
 from app.logic.user_logic import UserLogic
+from app.services.message_manager import MessageManager
 
 
 class FeedbackData(TypedDict):
@@ -31,6 +33,15 @@ class FeedbackNameForm(FeedbackTextData):
 
     state: AsyncMock
 
+
+@pytest.fixture()
+def test_message_manager(mock_bot: AsyncMock) -> MessageManager:
+    """Объект MessageManager.
+
+    Args:
+        mock_bot: Мок Bot.
+    """
+    return MessageManager(mock_bot)
 
 @pytest.fixture(params=[
     {"expected": False, "user_id": 1},
@@ -111,26 +122,15 @@ def feedback_text_form_data(request: pytest.FixtureRequest,
 
     return {"message": mock_message, "expected_text": text}
 
-@pytest.fixture(name="mock_user_logic")
-def f_mock_user_logic() -> AsyncMock:
-    """Мокаем логику объекта UserLogic."""
-    mock = AsyncMock(spec=UserLogic)
-    return mock
+@pytest.fixture()
+def test_user_logic() -> UserLogic:
+    """Объект UserLogic."""
+    return UserLogic()
 
 @pytest.fixture(name="mock_fms_context")
 def f_mock_fms_context() -> AsyncMock:  # TODO: отказаться от этойфикстуры в пользу mock_state, в tests/conftest.py
     """Мокаем объект FSMContext, чтобы имитировать администратора."""
     return AsyncMock(spec=FSMContext)
-
-@pytest.fixture()
-def user_logic_with_set_user_mock(mock_user_logic: AsyncMock) -> AsyncMock:
-    """Мокаем метод set_user объекта UserLogic.
-
-    Args:
-        mock_user_logic (AsyncMock): _description_
-    """
-    mock_user_logic.set_user = AsyncMock()
-    return mock_user_logic
 
 @pytest.fixture()
 def mock_fms_context_with_get_data(mock_fms_context: AsyncMock) -> AsyncMock:
@@ -157,10 +157,17 @@ def mock_message_user_configure_for_cmd_start(mock_message: AsyncMock, test_data
         last_name="User",
         full_name="Test User",
         )
+    mock_message.chat.id = 17
     return mock_message
 
 @pytest.fixture()
 def mock_wait_typing():
     """Мокаем wait_typing."""
-    with patch("app.handlers.user.wait_typing", return_value="twat wait") as m:
+    with patch("app.logic.user_logic.wait_typing", new_callable=AsyncMock) as m:
         yield m
+
+@pytest.fixture()
+def mock_set_user():
+    """Мокаем UserContext.set_user."""
+    with patch.object(UserContext, "set_user", new_callable=AsyncMock) as mock:
+        yield mock
