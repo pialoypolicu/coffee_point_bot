@@ -4,7 +4,7 @@ from aiogram.enums.parse_mode import ParseMode
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
-from app.configs import ADMIN_IDS
+from app.configs import ADMIN_IDS, current_chat_id
 from app.database.requests.feedback import FeedbackContext
 from app.helpers import wait_typing
 from app.keyboards import (
@@ -39,16 +39,19 @@ ANSWER_MSG = "Вы выбрали {feedback_type_rus}"
 class LogicFeedback(FeedbackContext):
     """Класс для работы логики обратной связи."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Контрусктор логики обратной связи."""
         self.user_logic = UserLogic()
 
+    @property
+    def chat_id(self) -> int | None:
+        """Возвращает текущий chat_id из контекста."""
+        return current_chat_id.get()
+
     @staticmethod
-    async def process_start_feedback_form(
-            callback: CallbackQuery,
-            state: FSMContext,
-            message_manager: MessageManager,
-            ) -> None:
+    async def process_start_feedback_form(callback: CallbackQuery,
+                                          state: FSMContext,
+                                          message_manager: MessageManager) -> None:
         """Логика оформления фидбека, кнопка оставить отзыв/предложение.
 
         Args:
