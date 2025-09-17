@@ -4,8 +4,6 @@ from dotenv import load_dotenv
 from sqlalchemy import URL
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from app.database.models import Base
-
 load_dotenv()
 
 url_object = URL.create(
@@ -17,7 +15,3 @@ url_object = URL.create(
 )
 
 async_engine = create_async_engine(url_object)
-
-async def async_main():
-    async with async_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
