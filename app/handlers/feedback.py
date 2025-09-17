@@ -3,15 +3,14 @@ from aiogram.enums.parse_mode import ParseMode
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
-from app.keyboards import back_to_start_keyboard, back_to_start_or_send_review_keyboard, inline_feedback
+from app.keyboards import back_to_start_keyboard, back_to_start_or_send_review_keyboard
 from app.logger import Logger
 from app.logic.feedback import LogicFeedback
+from app.services.message_manager import MessageManager
 from app.states import FeedbackForm
 
 feedback_router = Router()
 
-
-START_FEEDBACK_MSG = "Давайте заполним форму обратной связи\\.\n\n*Выберете тип обратной связи*:"
 # сообщение  нструкция для отправки сообщения ОС,
 NAME_FORM_MSG = "{name}, что бы оставить *{feedback_type_rus}*, пожалуйста, введите сообщение:"
 # если клиент прикрепляет не фото, когда хендлер ожидает исключительно только фото.
@@ -19,28 +18,38 @@ PHOTO_WRONG_MSG = "Пожалуйста, *прикрепите через скр
 
 
 @feedback_router.callback_query(F.data == "feedback")
-async def start_feedback_form(callback: CallbackQuery, state: FSMContext) -> None:
+async def start_feedback_form(
+        callback: CallbackQuery,
+        state: FSMContext,
+        logic_feedback: LogicFeedback,
+        message_manager: MessageManager,
+        ) -> None:
     """Входная точка старта сбора формы обратной связи.
 
     Args:
         callback: объект входящий запрос колбека кнопки обратного вызова на inline keyboard
         state: Состояния памяти.
+        logic_feedback: логикиа оформления обратной связи.
+        message_manager:Сервис для управления сообщениями с безопасной обработкой ошибок.
     """
-    await callback.answer("Вы выбрали Оставить отзыв/предложение.")
-    await state.clear()  # Сбрасываем состояние, если форма уже была запущена
-    await state.set_state(FeedbackForm.waiting_for_feedback_type)
-    await callback.message.answer(START_FEEDBACK_MSG, reply_markup=inline_feedback, parse_mode=ParseMode.MARKDOWN_V2)
+    await logic_feedback.process_start_feedback_form(callback, state, message_manager)
 
 @feedback_router.callback_query(FeedbackForm.waiting_for_feedback_type)
-async def feedback_type_form(callback: CallbackQuery, state: FSMContext, logic_feedback: LogicFeedback) -> None:
+async def feedback_type_form(
+        callback: CallbackQuery,
+        state: FSMContext,
+        logic_feedback: LogicFeedback,
+        message_manager: MessageManager,
+        ) -> None:
     """получаем тип ОС, это предложение suggestion или review отзыв.
 
     Args:
         callback: объект входящий запрос колбека кнопки обратного вызова на inline keyboard
         state: Состояния памяти.
-        logic_feedback: логикиа оформления обратной связи."
+        logic_feedback: логикиа оформления обратной связи.
+        message_manager:Сервис для управления сообщениями с безопасной обработкой ошибок.
     """
-    await logic_feedback.process_feedback_type_form(callback, state)
+    await logic_feedback.process_feedback_type_form(callback, state, message_manager)
 
 @feedback_router.message(FeedbackForm.waiting_for_name, F.text)
 async def feedback_name_form(message: Message, state: FSMContext) -> None:

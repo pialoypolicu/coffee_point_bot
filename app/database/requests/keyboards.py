@@ -3,7 +3,7 @@ from typing import TypedDict, Union
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database.models import Drink, Ingredient
+from app.database.models import Drink, DrinkCoffeePointAssociation, Ingredient
 from app.database.requests.base import connection
 
 IngredientType = type[Ingredient]
@@ -20,17 +20,18 @@ class IngredientNamesHint(TypedDict):
 
 @connection
 async def get_names(session: AsyncSession,
-                    model: ModelType = Ingredient,
-                    without_ids: list[int] | None = None) -> list[IngredientNamesHint]:
+                    coffee_point_id: int) -> list[IngredientNamesHint]:
     """получаем названния ингридиентов.
 
     Args:
         session: асинхронная сессия движка sqlalchemy
-        model: класс ORM модели.
-        without_ids: список id записей, которые нужно исключить из выборки.
+        coffee_point_id: id кофе пойнта.
     """
-    stmt = select(model.id, model.name)
-    if without_ids:
-        stmt = stmt.where(model.id.not_in(without_ids))
+    stmt = (
+        select(Drink.id, Drink.name)
+        .join(DrinkCoffeePointAssociation, Drink.id == DrinkCoffeePointAssociation.drink_id)
+        .where(DrinkCoffeePointAssociation.coffee_point_id == coffee_point_id)
+        .order_by(Drink.name)
+    )
     result = await session.execute(stmt)
     return result.mappings().all()

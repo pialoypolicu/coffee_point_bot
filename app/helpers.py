@@ -1,8 +1,11 @@
+import asyncio
+import random
 from datetime import datetime
 
 import pytz
+from aiogram.enums import ChatAction
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery
+from aiogram.types import CallbackQuery, Message
 
 from app.database.requests.admin import DrinkHint
 
@@ -38,3 +41,14 @@ def get_moscow_time() -> str:
     """Получить московское время, в формате 'hh:mm'."""
     moscow_time = datetime.now(MOSCOW_TZ)
     return moscow_time.strftime("%H:%M")
+
+async def wait_typing(message: Message | CallbackQuery) -> None:
+    """функция вызывает поп-ап 'Печатает'.
+
+    Args:
+        message: объект сообщения или колбека.
+    """
+    if (bot := message.bot) and (user := message.from_user):
+        await bot.send_chat_action(chat_id=user.id,
+                                        action=ChatAction.TYPING)
+        await asyncio.sleep(random.uniform(0.1, 0.5))

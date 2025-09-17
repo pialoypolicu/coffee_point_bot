@@ -6,7 +6,6 @@ from aiogram import Bot, Dispatcher
 from dotenv import load_dotenv
 
 from app import handlers as routers
-from app.database.base import async_main
 from app.middlewares.base import activate_middlewares
 
 load_dotenv()
@@ -24,7 +23,6 @@ async def main() -> None:
 
 async def startup(dispatcher: Dispatcher) -> None:
     logging.info("start up ...")
-    await async_main()
     activate_middlewares(dispatcher, routers)
 
 async def shutdown(dispatcher: Dispatcher) -> None:
