@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.models import FeedBack, Photo, User
 from app.database.requests.base import connection
+from app.schemas.feedback import FeedbackCreateSchema
 
 
 class UserUpdateHint(TypedDict):
@@ -20,15 +21,15 @@ class FeedbackContext:
 
     @staticmethod
     @connection
-    async def create_feedback(session: AsyncSession, data: dict[str, str | int]) -> None:
+    async def create_feedback(session: AsyncSession, data: FeedbackCreateSchema) -> None:
         """создаем отзыв/предложение клиента.
 
         Args:
             session: асинхронная сессия движка sqlalchemy
             data: словарь содержит значения отзыва/предложения.
         """
-        feedback = FeedBack(text=data["text"], feedback_type=data["feedback_type"], user_id=data["user_id"])
-        if photo := data.get("photo"):
+        feedback = FeedBack(**data.model_dump())
+        if photo := data.photos:
             Photo(photo_string=photo, feedback=feedback)
 
         session.add(feedback)
