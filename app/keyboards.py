@@ -29,6 +29,7 @@ CALLBACK_FEEDBACK = "feedback"
 CALLBACK_COFFEE_POINTS = "coffee_points"
 CALLBACK_COFFEE_POINT_PREFIX = "coffee_point_"
 CALLBACK_ITEM_PREFIX = "drink_item_"
+CALLBACK_PROMOTION = "promotion"
 
 class PrevStep(TypedDict):
     """Хинт набора данных для создания какстомной кнопки."""
@@ -43,6 +44,7 @@ def create_main_keyboard_with_points(is_admin: bool, coffee_points: list[CoffeeP
     inline_builder.row(
         InlineKeyboardButton(text="Отличного дня!", callback_data=CALLBACK_GOOD_WISH),
         InlineKeyboardButton(text="Контакты", callback_data="contacts"),
+        InlineKeyboardButton(text="Акция 🥳", callback_data=CALLBACK_PROMOTION),
         )
 
     # Кнопки кофейных точек (максимум 2 в строке)
