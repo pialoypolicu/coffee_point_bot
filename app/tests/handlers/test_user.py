@@ -83,6 +83,7 @@ async def test_coffee_point_handler(
         mock_calback_with_params: CallbackPointHint,
         test_user_logic: UserLogic,
         mock_wait_typing: AsyncMock,
+        mock_state_clean: AsyncMock,
         mock_message_manager: AsyncMock,
         mock_get_coffee_point_info_from_db: AsyncMock,
         ) -> None:
@@ -92,18 +93,20 @@ async def test_coffee_point_handler(
         mock_calback_with_params: параметризированный мок CallbackQuery.
         test_user_logic: Объект UserLogic.
         mock_wait_typing: Мок wait_typing
+        mock_state_clean: Очищенный мок объекта состояния памяти FSMContext.
         mock_message_manager: Мок MessageManager.
         mock_get_coffee_point_info_from_db: Мок функцию UserContext.get_coffee_point_info_db.
     """
     mock_callback_query = mock_calback_with_params["mock"]
     expected_point_id = mock_calback_with_params["expected_point_id"]
 
-    await coffee_point_handler(mock_callback_query, test_user_logic, mock_message_manager)
+    await coffee_point_handler(mock_callback_query, test_user_logic, mock_state_clean, mock_message_manager)
 
     mock_get_coffee_point_info_from_db.assert_awaited_once_with(expected_point_id)
     mock_wait_typing.assert_awaited_once()
     mock_message_manager.safe_callback_answer.assert_awaited_once()
     mock_message_manager.safe_edit_message.assert_awaited_once()
+    mock_state_clean.update_data.assert_awaited_once_with(coffee_point_id=expected_point_id)
 
 @pytest.mark.asyncio()
 async def test_get_coffee_point_drinks(
@@ -156,7 +159,10 @@ async def test_drink_item_handler(
     mock_callback_query = mock_calback_with_params_drink_item["mock"]
     expected_item_id = mock_calback_with_params_drink_item["expected_item_id"]
 
-    await drink_item_handler(mock_callback_query, mock_state_with_params_coffee_item, test_user_logic, mock_message_manager)
+    await drink_item_handler(mock_callback_query,
+                             mock_state_with_params_coffee_item,
+                             test_user_logic,
+                             mock_message_manager)
 
     mock_state_with_params_coffee_item.get_data.assert_awaited_once()
     mock_get_drink_detail_db.assert_awaited_once_with(item_id=expected_item_id)
@@ -180,7 +186,10 @@ async def test_back_to_start(
         mock_message_manager: Мок MessageManager.
         mock_get_coffee_points_db: Мок функцию UserContext.get_coffee_points_db.
     """
-    await back_to_start(mock_calback_with_params_back_to_start, mock_state_with_params_coffee_item, test_user_logic, mock_message_manager)
+    await back_to_start(mock_calback_with_params_back_to_start,
+                        mock_state_with_params_coffee_item,
+                        test_user_logic,
+                        mock_message_manager)
 
     mock_message_manager.safe_callback_answer.assert_awaited_once()
     mock_state_with_params_coffee_item.get_data.assert_awaited_once()
