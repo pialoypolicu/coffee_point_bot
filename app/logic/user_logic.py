@@ -2,24 +2,16 @@ from aiogram.enums.parse_mode import ParseMode
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
-from app.configs import ADMIN_IDS, current_chat_id
-from app.database.models import Drink
-from app.database.requests.keyboards import get_names
-from app.database.requests.user import CoffeePointHint, UserContext, UserDataHint
-from app.helpers import delete_messages, wait_typing
+from app.configs import current_chat_id
+from app.helpers import wait_typing
 from app.keyboards import (
     CALLBACK_COFFEE_POINT_PREFIX,
     CALLBACK_DRINKS,
     back_to_start_keyboard,
-    create_main_keyboard,
-    create_main_keyboard_with_points,
-    create_point_keyboard,
-    inline_builder,
-    # back_to_drinks,
     make_back_to_drinks_kb,
 )
 from app.models.user_model import UserModel
-from app.services.media_service import MediaService
+from app.services.media_service import MediaServiceManager
 from app.services.message_manager import MessageManager
 
 
@@ -28,7 +20,7 @@ class UserLogic(UserModel):
 
     def __init__(self) -> None:
         """Конструктор объекта взаимодействия клиента с ботом."""
-        self.media_service = MediaService()
+        self.media_service = MediaServiceManager()
 
     @property
     def chat_id(self) -> int | None:
@@ -239,7 +231,7 @@ class UserLogic(UserModel):
                                                 message_id,
                                                 message_text,
                                                 reply_markup=point_keyboard,
-                                                parse_mode=ParseMode.MARKDOWN)
+                                                parse_mode=ParseMode.MARKDOWN_V2)
 
     async def get_all_promotions(self,
                                  callback: CallbackQuery,
@@ -259,9 +251,6 @@ class UserLogic(UserModel):
             • Чтобы получить 5-й кофе бесплатно, купите 4 кофе в течение *365 дней* с момента первой покупки
             • Бесплатный кофе доступен в течение *30 дней* после оплаты 4-го кофе
         Ждём вас за вкусным кофе! ✨"""
+        text = "Зима ❄️ близко, а акция еще ближе ☕️, ожидайте ❤️‍🔥"
         message_id = callback.message.message_id
-        await message_manager.safe_edit_message(self.chat_id,
-                                                message_id,
-                                                text,
-                                                back_to_start_keyboard,
-                                                parse_mode=ParseMode.MARKDOWN)
+        await message_manager.safe_edit_message(self.chat_id, message_id, text, back_to_start_keyboard)
