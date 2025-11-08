@@ -5,6 +5,7 @@ from aiogram.types import CallbackQuery, Message
 
 from app.keyboards import (
     CALLBACK_FEEDBACK,
+    CALLBACK_SCORE_ITEM_PREFIX,
     CALLBACK_SEND_REVIEW,
     back_to_start_keyboard,
     back_to_start_or_send_review_keyboard,
@@ -55,6 +56,38 @@ async def feedback_type_form(callback: CallbackQuery,
 
     await message_manager.safe_callback_answer(callback, answer_msg)
 
+@feedback_router.callback_query(FeedbackForm.waiting_score, F.data.startswith(CALLBACK_SCORE_ITEM_PREFIX))
+async def feedback_score_form(callback: CallbackQuery,
+                             state: FSMContext,
+                             logic_feedback: LogicFeedback,
+                             message_manager: MessageManager) -> None:
+    """получаем тип ОС, это предложение suggestion или review отзыв.
+
+    Args:
+        callback: объект входящий запрос колбека кнопки обратного вызова на inline keyboard
+        state: Состояния памяти.
+        logic_feedback: логикиа оформления обратной связи.
+        message_manager:Сервис для управления сообщениями с безопасной обработкой ошибок.
+    """
+    answer_msg = await logic_feedback.process_feedback_score_form(callback, state, message_manager)
+
+    await message_manager.safe_callback_answer(callback, answer_msg)
+
+@feedback_router.message(FeedbackForm.waiting_text_for_admin, F.text)
+async def feedback_text_for_admin(message: Message,
+                                  state: FSMContext,
+                                  logic_feedback: LogicFeedback,
+                                  message_manager: MessageManager) -> None:
+    """получаем имя пользователя.
+
+    Args:
+        message: объект сообщения.
+        state: Состояния памяти.
+        logic_feedback: middleware LogicFeedback
+        message_manager: Сервис для управления сообщениями с безопасной обработкой ошибок.
+    """
+    await logic_feedback.process_client_message_to_admin(message, state, message_manager)
+
 @feedback_router.message(FeedbackForm.waiting_for_name, F.text)
 async def feedback_name_form(message: Message,
                              state: FSMContext,
@@ -73,7 +106,10 @@ async def feedback_name_form(message: Message,
 @feedback_router.message(FeedbackForm.waiting_for_text, ~F.text)  # '~' ожидаем все что угодно, кроме текстового сообщ.
 @feedback_router.message(FeedbackForm.waiting_for_name, ~F.text)
 async def handle_non_text_message(message: Message, state: FSMContext, logger: Logger) -> None:
-    """Обрабатывает некорректные сообщения (не текст) в состоянии waiting_for_name."""
+    """Обрабатывает некорректные сообщения (не текст) в состоянии waiting_for_name.
+
+    Проще говоря, отлов не валидного сообщения от клиента, когда он ему нужно отправть текстовое сообщение.
+    """
     msg = "Пожалуйста, введите текстовое сообщение."
     logger.add_message += "\nХендлер ждет текстового сообщения, клиент отправил что то другое."
     logger.level = "warning"
@@ -110,21 +146,46 @@ async def feedback_text_form(message: Message,
     """
     await logic_feedback.process_feedback_text_form(message, state, message_manager)
 
-@feedback_router.message(FeedbackForm.photo, F.photo)
-async def feedback_photo_form(message: Message, state: FSMContext, logic_feedback: LogicFeedback) -> None:
-    """Получаем фото от пользователя.
+# WARN: Возможно больше не пригодится. Пока не понятно как обрабатывать, если клиент отправит коллекцию фото
+# @feedback_router.message(FeedbackForm.photo, F.media_group_id)
+# async def feedback_group_photo_form(message: Message,
+#                               state: FSMContext,
+#                               logic_feedback: LogicFeedback,
+#                               message_manager: MessageManager) -> None:
+#     """Получаем фото от пользователя.
+
+#     Args:
+#         message: объект сообщения.
+#         state: Состояния памяти.
+#         logic_feedback: middleware LogicFeedback
+#     """
+#     await logic_feedback.process_feedback_completion_with_group_photo(message, state, message_manager)
+
+# WARN: Возможно больше не пригодится. Пока не понятно как обрабатывать, если клиент отправит коллекцию фото
+# @feedback_router.message(FeedbackForm.photo, F.photo)
+# async def feedback_photo_form(message: Message,
+#                               state: FSMContext,
+#                               logic_feedback: LogicFeedback,
+#                               message_manager: MessageManager) -> None:
+#     """Получаем фото от пользователя.
+
+#     Args:
+#         message: объект сообщения.
+#         state: Состояния памяти.
+#         logic_feedback: middleware LogicFeedback
+#     """
+#     await state.update_data(photos=message.photo[-1].file_id)
+#     await logic_feedback.process_feedback_completion(message, state, message_manager)
+
+@feedback_router.message(FeedbackForm.photo, ~F.photo)  # '~' ожидаем все что угодно, кроме фото.
+async def handle_non_photo_message(message: Message, state: FSMContext, logger: Logger) -> None:
+    """Обрабатывает некорректные сообщения (не текст) в состоянии waiting_for_name.
 
     Args:
         message: объект сообщения.
         state: Состояния памяти.
-        logic_feedback: middleware LogicFeedback
+        logger: объект логики для логирования.
     """
-    await state.update_data(photo=message.photo[-1].file_id)
-    await logic_feedback.process_feedback_completion(message, state)
-
-@feedback_router.message(FeedbackForm.photo, ~F.photo)  # '~' ожидаем все что угодно, кроме фото.
-async def handle_non_photo_message(message: Message, state: FSMContext, logger: Logger) -> None:
-    """Обрабатывает некорректные сообщения (не текст) в состоянии waiting_for_name."""
     logger.log("не корректные данные, ждем фото.", level="warning")
     state_data = await state.get_data()
     if msg_id := state_data.get("msg_id"):
@@ -149,6 +210,7 @@ async def feedback_photo_optional(callback: CallbackQuery,
         callback: объект входящий запрос колбека
         state: Состояния памяти.
         logic_feedback: middleware LogicFeedback
+        message_manager: Сервис для управления сообщениями с безопасной обработкой ошибок.
     """
     await logic_feedback.process_feedback_completion(callback, state, message_manager)
     await message_manager.safe_callback_answer(callback)

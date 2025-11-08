@@ -146,7 +146,7 @@ async def get_contacts(callback: CallbackQuery, message_manager: MessageManager)
     await callback.answer("Вы выбрали контакты.")
     chat_id = callback.message.chat.id
     message_id = callback.message.message_id
-    contacts_text = "Эл. почта:\nstatsprofi-apetukhov@yandex.ru"
+    contacts_text = "*Эл. почта:*\nstatsprofi-apetukhov@yandex.ru"
     await message_manager.safe_edit_message(chat_id, message_id, contacts_text, kb.back_to_start_keyboard)
 
 # @user_router.callback_query(F.data == "back_to_start")
@@ -198,5 +198,5 @@ async def get_promotions(callback: CallbackQuery,
         user_logic: логика работы с клиентом.
         message_manager: Сервис для управления сообщениями с безопасной обработкой ошибок.
     """
-    await user_logic.get_all_promotions(callback, state, message_manager)
+    await user_logic.get_all_promotions(callback, message_manager)
     await callback.answer("Вы выбрали Акция")
