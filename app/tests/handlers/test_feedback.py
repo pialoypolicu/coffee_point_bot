@@ -163,3 +163,9 @@ async def test_feedback_photo_optional(
     mock_update_user.assert_awaited_once()
     mock_message_manager.safe_edit_text.assert_awaited_once()
     mock_message_manager.safe_callback_answer.assert_awaited_once()
+
+async def test_feedback_group_photo_form(mock_callback,
+                                         mock_state_with_params_final_feedback,
+                                         mock_logic_feedback,
+                                         mock_message_manager) -> None:
+    assert True

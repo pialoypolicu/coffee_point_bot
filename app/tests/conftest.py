@@ -75,6 +75,23 @@ def f_mock_state() -> AsyncMock:
     state.clear = AsyncMock()
     return state
 
+@pytest.fixture(name="mock_state_clean")
+def f_mock_state_clean(mock_state: AsyncMock) -> AsyncMockGenerator:
+    """Фикстура-обертка для мока состояния с гарантией сброса между тестами.
+
+    Выполняет двойной сброс мока:
+        1. Перед выполнением теста - сбрасывает накопленные вызовы и настройки
+        2. После выполнения теста - очищает от изменений, сделанных в тесте
+    Это предотвращает "утечку" состояния мока между тестами и обеспечивает
+    предсказуемое поведение при параллельном выполнении тестов.
+
+    Args:
+        mock_state: мок FSMContext, состояние памяти.
+    """
+    mock_state.reset_mock()
+    yield mock_state
+    mock_state.reset_mock()
+
 @pytest.fixture(name="mock_logic_feedback")
 def f_mock_feedback() -> LogicFeedback:
     """Мокируем методы LogicFeedback."""

@@ -19,6 +19,27 @@ class LogicFeedbackData(TypedDict):
     expected_coffee_point_keyboard: InlineKeyboardMarkup
     logic_feedback: LogicFeedback
 
+class LogicFeedbackTypeForm(TypedDict):
+    """Хинт коллекции фиктуры mocks_handler_type_form."""
+
+    mock_callback: AsyncMock
+    mock_state: AsyncMock
+    mock_message_manager: AsyncMock
+
+
+class LogicFeedbackMainMsgs(TypedDict):
+    mock_logic_feedback: LogicFeedback
+    expected_main_msg: str
+    expected_answer_msg: str
+    expected_keyboard: InlineKeyboardMarkup
+
+
+class LogicFeedbackStateName(TypedDict):
+
+    mock_state: AsyncMock
+    mock_message: AsyncMock
+    mock_message_manager: AsyncMock
+
 
 @pytest.fixture(params=["photo_file_id", None])
 def logic_feedback_data(request: pytest.FixtureRequest,
@@ -56,10 +77,58 @@ def logic_feedback_data(request: pytest.FixtureRequest,
                                         "feedback_type_rus": feedback_type_rus,
                                         "name": name,
                                         "text": text,
-                                        "photo": photo}
+                                        "photos": photo}
     yield {"state": mock_state,
             "mock_callback": mock_callback,
             "expected_final_msg": final_feedback_msg,
             "expected_coffee_point_keyboard": kb,
             "logic_feedback": mock_logic_feedback}
     mock_state.reset_mock()
+
+@pytest.fixture()
+def mocks_handler_type_form(
+        mock_callback: AsyncMock,
+        mock_state_clean: AsyncMock,
+        mock_message_manager: AsyncMock
+        ) -> LogicFeedbackTypeForm:
+    mock_callback.data = "feedback_type:review"
+
+    return {"mock_callback": mock_callback,
+            "mock_state": mock_state_clean,
+            "mock_message_manager": mock_message_manager}
+
+@pytest.fixture()
+def mock_logic_feedback_with_params(mock_logic_feedback: LogicFeedback) -> LogicFeedbackMainMsgs:
+    expected_main_msg, answer_msg = mock_logic_feedback.parse_answer_msgs("review")
+    keyboard = mock_logic_feedback.parse_keyboard("review")
+
+    return {"mock_logic_feedback": mock_logic_feedback,
+            "expected_main_msg": expected_main_msg,
+            "expected_answer_msg": answer_msg,
+            "expected_keyboard": keyboard}
+
+@pytest.fixture()
+def mock_state_with_params(
+        mock_state_clean: AsyncMock,
+        mock_message: AsyncMock,
+        mock_message_manager: AsyncMock
+        ) -> LogicFeedbackStateName:
+    mock_state_clean.get_data.return_value = {"feedback_type": "review",
+                                              "feedback_type_rus": "Отзыв",
+                                              "bot_message_id": mock_message.message_id}
+    mock_message.text = "alex"
+    return {"mock_state": mock_state_clean, "mock_message": mock_message, "mock_message_manager": mock_message_manager}
+
+@pytest.fixture()
+def mock_logic_feedback_with_name(
+        mock_logic_feedback: LogicFeedback,
+        mock_state_with_params: LogicFeedbackStateName,
+        ) -> LogicFeedbackMainMsgs:
+    mock_message = mock_state_with_params["mock_message"]
+    name = mock_message.text.capitalize()
+    tip_hint = "Теперь введите ваше сообщение"
+    expected_main_msg, answer_msg = mock_logic_feedback.parse_answer_msgs("review", name=name, tip_hint=tip_hint)
+
+    return {"mock_logic_feedback": mock_logic_feedback,
+            "expected_main_msg": expected_main_msg,
+            "expected_answer_msg": answer_msg}
