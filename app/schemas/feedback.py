@@ -1,6 +1,8 @@
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
+
+FeedBackType = Literal["suggestion", "text_for_admin", "review", "review_score"]
 
 
 class FeedbackCreateSchema(BaseModel):
@@ -9,7 +11,7 @@ class FeedbackCreateSchema(BaseModel):
     text: str
     feedback_type: str
     coffee_point_id: int | None = None
-    photos: list[str] | None = []
+    photos: str | None = None
     user_id: int
 
 class FeedbackFinalState(BaseModel):
@@ -21,4 +23,14 @@ class FeedbackFinalState(BaseModel):
     feedback_type_rus: str
     name: str
     text: str
-    photo: str | None = None
+    photos: str | None = None
+
+    @field_validator("feedback_type", mode="before")
+    @classmethod
+    def validate_feedback_type(cls, v: str) -> str:
+        """Валидирует и преобразует feedback_type."""
+        if v == "review_score":
+            return "review"
+        elif v not in {"suggestion", "review"}:
+            raise ValueError(f"feedback_type должен быть 'suggestion', 'review' или 'review_score', получено: {v}")
+        return v
