@@ -52,3 +52,30 @@ async def wait_typing(message: Message | CallbackQuery) -> None:
         await bot.send_chat_action(chat_id=user.id,
                                         action=ChatAction.TYPING)
         await asyncio.sleep(random.uniform(0.1, 0.5))
+
+# WARN: поптка решения зависания и долгого отображения фразы "Печатает"
+def with_typing(func):
+    """Декоратор для автоматического отображения индикатора печати."""
+    async def wrapper(self, message: Message | CallbackQuery, *args, **kwargs):
+        bot = message.bot
+        user_id = message.from_user.id
+
+        async def keep_typing():
+            while True:
+                await bot.send_chat_action(user_id, ChatAction.TYPING)
+                await asyncio.sleep(2.9)
+                print(">>>")
+
+        typing_task = asyncio.create_task(keep_typing())
+        try:
+            return await func(self, message, *args, **kwargs)
+        finally:
+            typing_task.cancel()
+            try:
+                await typing_task
+            except asyncio.CancelledError:
+                print("<<< EXXIT")
+
+                pass
+
+    return wrapper

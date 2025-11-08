@@ -6,10 +6,11 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from app.database.requests.keyboards import IngredientNamesHint
 from app.database.requests.user import CoffeePointHint
 
-TYPE_ITEM = Literal["drink_item_", "update_item_", "ingredient_item_"]
+TYPE_ITEM = Literal["drink_item_", "update_item_", "ingredient_item_", "score_item_"]
 # drink_item_ - в случае просто перечисления меню напитков.
 # ingredient_item_ - перечисление инггредиентов.
 # update_item_ - в случае, когда нужно обновить напиток.
+# score_item_ - в случае оценки.
 
 # Константы для callback_data для избежания опечаток
 # TODO: вынести в ENUM + вынести в отдельный менеджер логику создания клавиатур.
@@ -28,6 +29,7 @@ CALLBACK_GOOD_WISH = "good_wish"
 CALLBACK_FEEDBACK = "feedback"
 CALLBACK_COFFEE_POINTS = "coffee_points"
 CALLBACK_COFFEE_POINT_PREFIX = "coffee_point_"
+CALLBACK_SCORE_ITEM_PREFIX = "score_item_"
 CALLBACK_ITEM_PREFIX = "drink_item_"
 CALLBACK_PROMOTION = "promotion"
 
@@ -64,11 +66,11 @@ def create_main_keyboard_with_points(is_admin: bool, coffee_points: list[CoffeeP
     return inline_builder.as_markup()
 
 def create_custom_inlline_button(callback_data: str, text: str = "Назад") -> InlineKeyboardButton:
-    """Функция динамически создает inline кноку.
+    """Функция динамически создает inline кнопку.
 
     Args:
         callback_data: строка, путь до роутера.
-        text: текст кноки. Defaults to "Назад".
+        text: текст кнопки. Defaults to "Назад".
     """
     return InlineKeyboardButton(text=text, callback_data=callback_data)
 
@@ -79,7 +81,7 @@ back_to_start_keyboard = InlineKeyboardMarkup(
 )
 back_to_start_or_send_review_keyboard = InlineKeyboardMarkup(
     inline_keyboard=[
-        [InlineKeyboardButton(text="Отправить без фото", callback_data=CALLBACK_SEND_REVIEW)],
+        [InlineKeyboardButton(text="Отправить", callback_data=CALLBACK_SEND_REVIEW)],
         [back_to_start_keyboard.inline_keyboard[0][0]],
     ]
 )
@@ -137,7 +139,8 @@ def create_point_keyboard(point_id: int, prev_step: PrevStep | None) -> InlineKe
 def inline_builder(names: list[IngredientNamesHint],
                    item: TYPE_ITEM = "drink_item_",
                    prev_callback_data: str | None = None,
-                   prev_text: str = "Назад") -> InlineKeyboardMarkup:
+                   prev_text: str = "Назад",
+                   adjust_number: int = 2) -> InlineKeyboardMarkup:
     """Функция создает inline кнопки со списком напитков | ингредиентов.
 
     Последнее используется при создании напитка в БД.
@@ -151,7 +154,7 @@ def inline_builder(names: list[IngredientNamesHint],
     inline_builder = InlineKeyboardBuilder()
     for value in names:
         inline_builder.add(InlineKeyboardButton(text=value["name"], callback_data=f"{item}{value['id']}"))
-    inline_builder.adjust(2)  # собирааем то что пришло из БД
+    inline_builder.adjust(adjust_number)  # собирааем то что пришло из БД
     # if item == "drink_item_":
     #     inline_button = 
     #     keyboard.row(back_to_start_keyboard.inline_keyboard[0][0])  # после отдельной строкой выводим кнопку на старт.
