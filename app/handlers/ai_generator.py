@@ -2,6 +2,7 @@ from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery
 
+from app.keyboards import back_to_start_keyboard
 from app.logic.ai_gen_logic import AIGeneratorLogic
 
 ai_router = Router()
@@ -25,8 +26,9 @@ async def ai_gen_wish(callback: CallbackQuery, state: FSMContext, aigen_logic: A
     try:
         await aigen_logic.gpt_text(callback, state)
     except Exception:
-        # В случае ошибки показываем сообщение
+        # В случае ошибки показываем сообщение TODO: реализовать коллекцию старых ответов и их отдавать.
         await callback.message.edit_text(
-            "❌ Произошла ошибка при генерации. Попробуй еще раз!"
+            "❌ Произошла ошибка при генерации. Повторите, попытку позже.",
+            reply_markup=back_to_start_keyboard,
         )
         raise

@@ -16,3 +16,6 @@ colorlog==6.9.0
 
 # timezone
 pytz==2025.1
+
+# tests
+pytest-mock==3.15.1

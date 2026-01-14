@@ -10,7 +10,7 @@ from app.logic.ai_gen_logic import AIGeneratorLogic
 from app.logic.feedback import LogicFeedback
 from app.logic.user_logic import UserLogic
 from app.middlewares.ai_gen_middleware import AIGenLogicMiddleware
-from app.middlewares.feedback import LogicFeedbackMiddleware
+from app.middlewares.feedback_middleware import LogicFeedbackMiddleware
 from app.middlewares.logger_middleware import LoggingMiddleware
 from app.middlewares.message_manager_middleware import MessageManagerMiddleware
 from app.middlewares.user_middleware import UserLogicMiddleware

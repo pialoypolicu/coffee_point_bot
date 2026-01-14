@@ -41,6 +41,16 @@ class DrinkResult(IngredientResult):
     ingredients: IngredientResHint
 
 
+class ExternalReviewLinkResult(TypedDict):
+    """Хинт для возвращаемых данных внешней ссылки."""
+
+    id: int
+    resource_name: str
+    url: str
+    is_active: bool
+    coffee_point_id: int
+
+
 class Base(AsyncAttrs, DeclarativeBase):
     pass
 
@@ -105,6 +115,11 @@ class CoffeePoint(Base):
         back_populates="coffee_points"
     )
     feedback: Mapped[list["FeedBack"]] = relationship(back_populates="coffee_point")
+    external_review_links: Mapped[list["CoffeePointExternalLink"]] = relationship(
+        back_populates="coffee_point",
+        cascade="all, delete-orphan",
+        lazy="selectin",  # Для быстрой загрузки ссылок при запросе кофейни
+    )
 
     def to_dict(self) -> CoffeePointResult:
         """Собираем словарь с вложенными объектами из других таблиц."""
@@ -114,6 +129,14 @@ class CoffeePoint(Base):
             "address": self.address,
             "metro_station": self.metro_station,
         }
+
+    def to_dict_with_links(self) -> dict:
+        """Расширенный словарь с внешними ссылками."""
+        base_dict = self.to_dict()
+        base_dict["external_links"] = [
+            link.to_dict() for link in self.external_review_links if link.is_active
+        ]
+        return base_dict
 
 
 class Ingredient(Base):
@@ -205,3 +228,60 @@ class Drink(Base):
                 for ingredient in self.ingredients
             ]
         return drink_dict
+
+
+class CoffeePointExternalLink(Base):
+    """Модель для хранения ссылок на внешние сервисы отзывов кофейни.
+
+    Связывает кофейни с внешними платформами, где можно оставить отзыв
+    (Яндекс.Карты, Google Maps, 2GIS, TripAdvisor и т.д.).
+    """
+
+    __tablename__ = "coffee_point_external_links"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+
+    # Название ресурса (Яндекс.Карты, Google Maps, 2GIS и т.д.)
+    resource_name: Mapped[str] = mapped_column(String(100),
+                                               nullable=False,
+                                               comment="Название платформы для отзывов "
+                                                        "(Яндекс.Карты, Google Maps, 2GIS)")
+
+    # URL для оставления отзыва
+    url: Mapped[str] = mapped_column(String(2000),
+                                     nullable=False,
+                                     comment="Ссылка на страницу отзывов кофейни на внешнем ресурсе")
+
+    # Активна ли ссылка
+    is_active: Mapped[bool] = mapped_column(Boolean,
+                                            default=True,
+                                            comment="Активна ли ссылка для показа пользователям")
+
+    # Внешний ключ к кофейне
+    coffee_point_id: Mapped[int] = mapped_column(ForeignKey("coffee_points.id", ondelete="CASCADE"),
+                                                 nullable=False,
+                                                 comment="ID кофейной точки")
+
+    # Дата создания и обновления
+    created_dt: Mapped[DateTime] = mapped_column(DateTime,
+                                                 nullable=False,
+                                                 server_default=func.timezone("Europe/Moscow", func.now()),
+                                                 comment="Дата создания записи")
+
+    update_dt: Mapped[DateTime] = mapped_column(DateTime,
+                                                nullable=True,
+                                                onupdate=func.timezone("Europe/Moscow", func.now()),
+                                                comment="Дата последнего обновления")
+
+    # Связь с кофейней (многие к одному)
+    coffee_point: Mapped["CoffeePoint"] = relationship(back_populates="external_review_links")
+
+    def to_dict(self) -> ExternalReviewLinkResult:
+        """Преобразует объект в словарь."""
+        return {
+            "id": self.id,
+            "resource_name": self.resource_name,
+            "url": self.url,
+            "is_active": self.is_active,
+            "coffee_point_id": self.coffee_point_id,
+        }

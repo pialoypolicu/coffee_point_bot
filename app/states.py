@@ -7,16 +7,12 @@ class Ingredient(StatesGroup):
     photo = State()
     drink = State()
 
-class FeedBack(StatesGroup):
-    name = State()
-    contact = State()
-    text = State()
-
 
 # Определение состояний формы
 class FeedbackForm(StatesGroup):
     waiting_for_name = State()
-    # waiting_for_phone = State()
+    waiting_score = State()
     waiting_for_feedback_type = State()
     waiting_for_text = State()
+    waiting_text_for_admin = State()
     photo = State()

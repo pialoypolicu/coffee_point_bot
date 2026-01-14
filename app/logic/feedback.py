@@ -1,54 +1,40 @@
-from datetime import datetime
-
 from aiogram.enums.parse_mode import ParseMode
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
-from app.configs import ADMIN_IDS
-from app.database.requests.feedback import FeedbackContext
+from app.configs import current_chat_id
 from app.helpers import wait_typing
 from app.keyboards import (
     CALLBACK_BACK_TO_START,
     back_to_start_keyboard,
-    create_main_keyboard,
+    back_to_start_or_send_review_keyboard,
     inline_feedback,
 )
 from app.logic.user_logic import UserLogic
+from app.models.feedback_model import FeedbackModel
+from app.schemas.feedback import FeedbackFinalState, FeedBackType
+from app.services.media_service import MediaServiceManager
 from app.services.message_manager import MessageManager
 from app.states import FeedbackForm
 
-FEEDBACK_TYPES = {"suggestion": "Предложение", "review": "Отзыв"}
 
-START_FEEDBACK_MSG = "Давайте заполним форму обратной связи\\.\n\n*Выберете тип обратной связи*:"
-#  финальное сообщения после оформления ОС.
-FINAL_FEEDBACK_MSG = (
-            "*Форма обратной связи заполнена:*\n\n"
-            "Имя: {name}\n"
-            "Тип: {feedback_type}\n"
-            "Текст: {text}\n"
-        )
-# сообщение информирующее какой выбран тип ОС + о предстоящих шагах.
-FEEDBACK_STEPS_MSG = ("Вы выбрали *{feedback_type_rus}*\\.\n*Шаги для заполнения формы:*\n"
-                    "\\- *Имя*\n"
-                    "\\- *Текст*\n"
-                    "\\- *Фото* \\(*не обязательно*\\)\n\n"
-                        "*Пожалуйста, введите ваше имя*:")
-# сообщение о выборе после нажатия кклавиши.
-ANSWER_MSG = "Вы выбрали {feedback_type_rus}"
-
-class LogicFeedback(FeedbackContext):
+class LogicFeedback(FeedbackModel):
     """Класс для работы логики обратной связи."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Контрусктор логики обратной связи."""
+        super().__init__()
         self.user_logic = UserLogic()
+        self.media_group_manager = MediaServiceManager(max_photos=10, process_delay=1.0)
 
-    @staticmethod
+    @property
+    def chat_id(self) -> int | None:
+        """Возвращает текущий chat_id из контекста."""
+        return current_chat_id.get()
+
     async def process_start_feedback_form(
-            callback: CallbackQuery,
-            state: FSMContext,
-            message_manager: MessageManager,
-            ) -> None:
+        self, callback: CallbackQuery, state: FSMContext, message_manager: MessageManager
+    ) -> None:
         """Логика оформления фидбека, кнопка оставить отзыв/предложение.
 
         Args:
@@ -58,26 +44,18 @@ class LogicFeedback(FeedbackContext):
         """
         await wait_typing(callback)
 
-        chat_id = callback.message.chat.id
         message_id = callback.message.message_id
 
-        await callback.answer("Вы выбрали 'Оставить отзыв/предложение'.")
-        await state.clear()  # Сбрасываем состояние, если форма уже была запущена
         await state.set_state(FeedbackForm.waiting_for_feedback_type)
 
         await message_manager.safe_edit_message(
-            chat_id, message_id,
-            START_FEEDBACK_MSG,
-            inline_feedback,
-            parse_mode=ParseMode.MARKDOWN_V2,
-            )
+            self.chat_id, message_id, self.START_FEEDBACK_MSG, inline_feedback, parse_mode=ParseMode.MARKDOWN_V2
+        )
 
-    async def process_feedback_type_form(
-            self,
-            callback: CallbackQuery,
-            state: FSMContext,
-            message_manager: MessageManager,
-            ) -> None:
+    async def process_feedback_type_form(self,
+                                         callback: CallbackQuery,
+                                         state: FSMContext,
+                                         message_manager: MessageManager) -> str:
         """обработка выбора типа ОС от клиента. или кнопка 'Предложение' или 'Отзыв'.
 
         Args:
@@ -86,57 +64,153 @@ class LogicFeedback(FeedbackContext):
             message_manager: Сервис для управления сообщениями с безопасной обработкой ошибок.
         """
         if (callback_data := callback.data) == CALLBACK_BACK_TO_START:
-            await self.user_logic.execute_start_command(callback, state, message_manager)
-            return
-        feedback_type = callback_data.split(":")[1]  # Извлекаем 'suggestion' или 'review'
-        feedback_type_rus = FEEDBACK_TYPES[feedback_type]
-        msg = FEEDBACK_STEPS_MSG.format(feedback_type_rus=feedback_type_rus)
-        answer_msg = ANSWER_MSG.format(feedback_type_rus=feedback_type_rus)
+            await self.user_logic.execute_back_to_start(callback, state, message_manager)
+            return "В начало"
 
-        await callback.answer(answer_msg)
-        await state.set_state(FeedbackForm.waiting_for_name)
-        message_for_user = await callback.message.answer(msg,
-                                                        reply_markup=back_to_start_keyboard,
-                                                        parse_mode=ParseMode.MARKDOWN_V2)
-        await state.update_data(feedback_type=feedback_type,
-                                feedback_type_rus=feedback_type_rus,
-                                msg_id=message_for_user.message_id)
+        feedback_type: FeedBackType = callback_data.split(":")[1]  # Извлекаем 'suggestion' или 'review'
 
-    async def process_feedback_completion(self, message: Message, state: FSMContext, tg_id: int | None = None) -> None:
+        await self.feedback_set_step(state, feedback_type)
+
+        message_id = callback.message.message_id
+
+        main_msg, answer_msg = self.parse_answer_msgs(feedback_type)
+        keyboard = self.parse_keyboard(feedback_type)
+
+        await message_manager.safe_edit_message(
+            self.chat_id, message_id, main_msg, keyboard, parse_mode=ParseMode.MARKDOWN_V2
+        )
+        await state.update_data(
+            feedback_type=feedback_type,
+            feedback_type_rus=self.FEEDBACK_TYPES[feedback_type],
+            bot_message_id=message_id,
+        )
+        return answer_msg
+
+    async def process_feedback_score_form(self,
+                                          callback: CallbackQuery,
+                                          state: FSMContext,
+                                          message_manager: MessageManager) -> str:
+        """обработка выбора типа ОС от клиента. или кнопка 'Предложение' или 'Отзыв'.
+
+        Args:
+            callback: объект входящий запрос колбека кнопки обратного вызова на inline keyboard
+            state: Состояния памяти.
+            message_manager: Сервис для управления сообщениями с безопасной обработкой ошибок.
+        """
+        callback_data_score = callback.data
+        message_id = callback.message.message_id
+        score_value = self.parse_score(callback_data_score)
+        clean_markdown = False
+
+        answer_for_client, ans = await self.parse_score_text(state, score_value)
+        if score_value < self.max_score:
+            await state.update_data(feedback_type="review_score", score_value=score_value)
+            await self.feedback_set_step(state, feedback_type="suggestion")
+            clean_markdown = True
+
+        await message_manager.safe_edit_message(self.chat_id,
+                                                message_id,
+                                                answer_for_client,
+                                                back_to_start_keyboard,
+                                                clean_markdown=clean_markdown,
+                                                parse_mode=ParseMode.MARKDOWN_V2)
+        return ans
+
+    # WARN: Возможно это более не понадобится.
+    # async def process_client_message_to_admin(self,message: Message, message_manager: MessageManager):
+    #     text = message.text
+    #     admin_message = await self.collect_client_message_for_admin(text)
+    #     your_chat_id = ADMIN_IDS[0]  # Берем первый ID из списка администраторов
+    #     await message_manager.safe_send_message(chat_id=your_chat_id, text=admin_message)
+    #     await message_manager.delete_messages(self.chat_id, [message.message_id])
+    #     await message_manager.safe_send_message(
+    #         self.chat_id, "Сообщение отправлено.", reply_markup=back_to_start_keyboard
+    #     )
+
+    async def process_feedback_name_form(self,
+                                         message: Message,
+                                         state: FSMContext,
+                                         message_manager: MessageManager) -> None:
+        """Логика обработки имени клиента, при оформлении ОС.
+
+        Args:
+            message: объект сообщения.
+            state: Состояния памяти.
+            message_manager:  Сервис для управления сообщениями с безопасной обработкой ошибок.
+        """
+        state_data = await state.get_data()
+        name = message.text.capitalize()
+        score_value = state_data.get("score_value")
+        tip_hint = "Теперь введите ваше сообщение"
+        msg, _ = self.parse_answer_msgs(state_data["feedback_type"], name, score_value=score_value, tip_hint=tip_hint)
+        await state.set_state(FeedbackForm.waiting_for_text)
+        # Удаляем сообщение пользователя
+        await message_manager.delete_messages(self.chat_id, [message.message_id])
+        await message_manager.safe_edit_message(
+            self.chat_id, state_data["bot_message_id"], msg, back_to_start_keyboard, parse_mode=ParseMode.MARKDOWN_V2
+        )
+        await state.update_data(name=name)
+
+    async def process_feedback_text_form(self,
+                                         message: Message,
+                                         state: FSMContext,
+                                         message_manager: MessageManager) -> None:
+        """Логика обработки введенного текста клиента с его ОС.
+
+        Args:
+            message: объект сообщения.
+            state: Состояния памяти.
+            message_manager: Сервис для управления сообщениями с безопасной обработкой ошибок.
+        """
+        await message_manager.delete_messages(self.chat_id, [message.message_id])
+        await state.set_state(FeedbackForm.photo)
+        state_data = await state.get_data()
+        tip_hint = "Подтвердите, нажав кнопку <Отправить>"
+        # feedback_text = self.prepare_text(state_data.get("name"), message.text)
+        feedback_text, answer_msg = self.parse_answer_msgs(
+            state_data["feedback_type"], name=state_data["name"], text=message.text, tip_hint=tip_hint
+        )
+
+        await message_manager.safe_edit_message(
+            self.chat_id, state_data["bot_message_id"], feedback_text, back_to_start_or_send_review_keyboard
+        )
+        await state.update_data(text=message.text)
+        return answer_msg
+
+    async def process_feedback_completion(self,
+                                          callback: CallbackQuery | Message,
+                                          state: FSMContext,
+                                          message_manager: MessageManager) -> None:
         """Общая логика завершения формы обратной связи.
 
         Args:
-            message: объект сообщения. так же может поступить сообщение коллбека, оно может относиться к боту.
+            callback: объект сообщения. так же может поступить сообщение коллбека, оно может относиться к боту.
                 Поэтому присутствует аргумент tg_id. если летит коллбек. то будет передан tg_id клиента.
             state: Состояния памяти.
-            tg_id: телеграм id клиента.
+            message_manager: Сервис для управления сообщениями с безопасной обработкой ошибок.
         """
-        tg_user_id = tg_id or message.from_user.id
-        is_admin_user = tg_user_id in ADMIN_IDS  # Проверяем, является ли пользователь админом
-        main_keyboard = create_main_keyboard(is_admin_user)
+        message_id = callback.message.message_id if isinstance(callback, CallbackQuery) else callback.message_id
+        data = await state.get_data()
+        state_data = FeedbackFinalState(**data)
+        tg_user_id = callback.from_user.id
+        text = state_data.text
+        name = state_data.name
+        feedback_type = self.FEEDBACK_TYPES[state_data.feedback_type]
+        final_feedback_msg = self.FINAL_FEEDBACK_MSG.format(name=name, feedback_type=feedback_type, text=text)
 
-        state_data = await state.get_data()
-        text = state_data["text"]
-        name = state_data.pop("name")
-
-        user_id = await self.get_user_id(tg_user_id=tg_user_id)
-        state_data |= {"user_id": user_id}
-        feedback_type = state_data["feedback_type"]
-        user_data = {"name": name, "update_dt": datetime.now()}
-        await self.update_user(user_id=user_id, data=user_data)
-
-        await self.create_feedback(state_data)
-        feedback_type = FEEDBACK_TYPES[feedback_type]
-
-        final_feedback_msg = FINAL_FEEDBACK_MSG.format(name=name, feedback_type=feedback_type, text=text)
-
-        # Добавляем информацию о фото, если оно было загружено
-        if state_data.get("photo"):
-            final_feedback_msg += "Фото: Загружено\n\n"
-        else:
-            final_feedback_msg += "Фото: Не загружено\n\n"
-
-        final_feedback_msg += r"*Спасибо за обратную связь\!*"
-
-        await message.reply(final_feedback_msg, reply_markup=main_keyboard, parse_mode=ParseMode.MARKDOWN_V2)
+        user_id = await self.get_user_id_from_db(tg_user_id)
+        await self.save_feedback_in_db(state_data, user_id)
+        coffee_point_keyboard = await self.collect_coffee_point_kb(state_data.coffee_point_id)
+        await self.update_user_in_db(user_id, name)
+        await message_manager.safe_edit_text(self.chat_id,
+                                             message_id,
+                                             final_feedback_msg,
+                                             reply_markup=coffee_point_keyboard,
+                                             parse_mode=ParseMode.MARKDOWN_V2)
         await state.clear()
+
+    # WARN: Для обработки группы фоток, пока не ясно, нужно будет ли это в будущем.
+    # async def process_feedback_completion_with_group_photo(self, message: Message, state: FSMContext) -> None:
+    #     if message.video:
+    #         return None
+    #     await self.media_group_manager.add_to_media_group(message, state)

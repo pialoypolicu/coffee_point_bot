@@ -1,25 +1,17 @@
 from aiogram.enums.parse_mode import ParseMode
 from aiogram.fsm.context import FSMContext
-from aiogram.methods import EditMessageText
 from aiogram.types import CallbackQuery, Message
 
-from app.configs import ADMIN_IDS, current_chat_id
-from app.database.models import Drink
-from app.database.requests.keyboards import get_names
-from app.database.requests.user import CoffeePointHint, UserContext, UserDataHint
-from app.helpers import delete_messages, wait_typing
+from app.configs import current_chat_id
+from app.helpers import wait_typing
 from app.keyboards import (
     CALLBACK_COFFEE_POINT_PREFIX,
     CALLBACK_DRINKS,
-    create_main_keyboard,
-    create_main_keyboard_with_points,
-    create_point_keyboard,
-    inline_builder,
-    # back_to_drinks,
+    back_to_start_keyboard,
     make_back_to_drinks_kb,
 )
 from app.models.user_model import UserModel
-from app.services.media_service import MediaService
+from app.services.media_service import MediaServiceManager
 from app.services.message_manager import MessageManager
 
 
@@ -28,7 +20,7 @@ class UserLogic(UserModel):
 
     def __init__(self) -> None:
         """Конструктор объекта взаимодействия клиента с ботом."""
-        self.media_service = MediaService()
+        self.media_service = MediaServiceManager()
 
     @property
     def chat_id(self) -> int | None:
@@ -47,6 +39,7 @@ class UserLogic(UserModel):
             message_manager: Сервис для управления сообщениями с безопасной обработкой ошибок.
         """
         await wait_typing(message)
+        await message_manager.delete_messages(self.chat_id, [message.message_id])
         msg = "Добро пожаловать в Coffee Point!"
         await self.set_user(message)
 
@@ -180,14 +173,14 @@ class UserLogic(UserModel):
                                     callback: CallbackQuery,
                                     state: FSMContext,
                                     message_manager: MessageManager) -> None:
-        """логика работы кноки 'Вернуться в начало'.
+        """логика работы кнопки 'Вернуться в начало'.
 
         Args:
             callback: объект входящий запрос колбека кнопки обратного вызова на inline keyboard
             state: состояние памяти.
             message_manager: Сервис для управления сообщениями с безопасной обработкой ошибок.
         """
-        if await state.get_data():
+        if await state.get_data() or await state.get_state():
             await state.clear()
 
         message_id = callback.message.message_id
@@ -202,11 +195,13 @@ class UserLogic(UserModel):
 
     async def get_coffee_point_info(self,
                                     callback: CallbackQuery,
+                                    state: FSMContext,
                                     message_manager: MessageManager) -> None:
         """Получает подробную информацию о кофейной точке.
 
         Args:
             callback: объект входящий запрос колбека кнопки обратного вызова на inline keyboard
+            state: состояние памяти.
             message_manager: Сервис для управления сообщениями с безопасной обработкой ошибок.
         """
         await wait_typing(callback)
@@ -216,6 +211,8 @@ class UserLogic(UserModel):
         message_id = callback.message.message_id
 
         point_id = int(callback.data.replace(CALLBACK_COFFEE_POINT_PREFIX, ""))
+
+        await state.update_data(coffee_point_id=point_id)
 
         point_info = await self.get_coffee_point_info_from_db(point_id)
 
@@ -234,4 +231,26 @@ class UserLogic(UserModel):
                                                 message_id,
                                                 message_text,
                                                 reply_markup=point_keyboard,
-                                                parse_mode=ParseMode.MARKDOWN)
+                                                parse_mode=ParseMode.MARKDOWN_V2)
+
+    async def get_all_promotions(self,
+                                 callback: CallbackQuery,
+                                 message_manager: MessageManager) -> None:
+        """Логика предоставления информации об акциях.
+
+        Args:
+            callback: объект входящий запрос колбека кнопки обратного вызова на inline keyboard
+            message_manager: Сервис для управления сообщениями с безопасной обработкой ошибок.
+        """
+        text = """👋 *Дарим 5-й кофе бесплатно!* 🎉
+        *Как участвовать:*
+        1. Оплачивайте кофе банковской картой
+            ⚠️ *Важно:* оплата по СБП не участвует в акции.
+
+        *Сроки действия:*
+            • Чтобы получить 5-й кофе бесплатно, купите 4 кофе в течение *365 дней* с момента первой покупки
+            • Бесплатный кофе доступен в течение *30 дней* после оплаты 4-го кофе
+        Ждём вас за вкусным кофе! ✨"""
+        text = "Зима ❄️ близко, а акция еще ближе ☕️, ожидайте ❤️‍🔥"
+        message_id = callback.message.message_id
+        await message_manager.safe_edit_message(self.chat_id, message_id, text, back_to_start_keyboard)

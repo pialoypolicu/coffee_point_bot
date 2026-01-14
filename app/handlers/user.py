@@ -1,7 +1,6 @@
 from aiogram import F, Router
 from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
-from aiogram.methods import EditMessageText
 from aiogram.types import CallbackQuery, Message, ReplyKeyboardRemove
 
 import app.keyboards as kb
@@ -40,15 +39,17 @@ async def help_cmd(message: Message) -> None:
 @user_router.callback_query(F.data.startswith(kb.CALLBACK_COFFEE_POINT_PREFIX))
 async def coffee_point_handler(callback: CallbackQuery,
                                user_logic: UserLogic,
+                               state: FSMContext,
                                message_manager: MessageManager) -> None:
     """Обработчик выбора кофейной точки. Т.е. нужно развернуть меню конкретной точки.
 
-    Ars:
+    Args:
         callback: объект входящий запрос колбека кнопки обратного вызова на inline keyboard
         user_logic: логика работы с клиентом.
+        state: Состояния памяти.
         message_manager: Сервис для управления сообщениями с безопасной обработкой ошибок.
     """
-    await user_logic.get_coffee_point_info(callback, message_manager)
+    await user_logic.get_coffee_point_info(callback, state, message_manager)
     await message_manager.safe_callback_answer(callback)
 
 @user_router.callback_query(F.data.startswith(kb.CALLBACK_DRINKS))
@@ -145,7 +146,7 @@ async def get_contacts(callback: CallbackQuery, message_manager: MessageManager)
     await callback.answer("Вы выбрали контакты.")
     chat_id = callback.message.chat.id
     message_id = callback.message.message_id
-    contacts_text = "Эл. почта:\nstatsprofi-apetukhov@yandex.ru"
+    contacts_text = "*Эл. почта:*\nstatsprofi-apetukhov@yandex.ru"
     await message_manager.safe_edit_message(chat_id, message_id, contacts_text, kb.back_to_start_keyboard)
 
 # @user_router.callback_query(F.data == "back_to_start")
@@ -183,3 +184,19 @@ async def back_to_start(callback: CallbackQuery,
     """
     await user_logic.execute_back_to_start(callback, state, message_manager)
     await message_manager.safe_callback_answer(callback, "В начало")
+
+@user_router.callback_query(F.data == kb.CALLBACK_PROMOTION)
+async def get_promotions(callback: CallbackQuery,
+                         state: FSMContext,
+                         user_logic: UserLogic,
+                         message_manager: MessageManager) -> None:
+    """Роутер колбека кнопки Контакты.
+
+    Args:
+        callback: объект входящий запрос колбека кнопки обратного вызова на inline keyboard
+        state: состояние памяти.
+        user_logic: логика работы с клиентом.
+        message_manager: Сервис для управления сообщениями с безопасной обработкой ошибок.
+    """
+    await user_logic.get_all_promotions(callback, message_manager)
+    await callback.answer("Вы выбрали Акция")
